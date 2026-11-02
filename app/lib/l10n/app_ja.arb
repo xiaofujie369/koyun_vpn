@@ -172,6 +172,7 @@
  "feedbackSent": "フィードバックを受け付けました。ありがとうございます",
  "feedbackFailed": "送信に失敗しました。後で再試行するかチケットを送信してください",
  "feedbackEmpty": "内容を入力してください",
+ "otherRegion": "その他",
  "logout": "ログアウト",
  "switchToAccount": "アカウントでログイン",
  "logoutConfirm": "ログアウトしますか？接続を切断し、保存されたサーバーを削除します。",

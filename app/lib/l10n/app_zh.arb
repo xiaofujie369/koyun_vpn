@@ -172,6 +172,7 @@
  "feedbackSent": "已收到您的反馈，感谢！",
  "feedbackFailed": "发送失败，请稍后重试或提交工单",
  "feedbackEmpty": "请先填写问题描述",
+ "otherRegion": "其他",
  "logout": "退出登录",
  "switchToAccount": "切换为账号登录",
  "logoutConfirm": "确定要退出吗？退出后将断开连接并清除本机保存的节点。",

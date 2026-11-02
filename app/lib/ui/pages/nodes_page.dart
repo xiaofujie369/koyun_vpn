@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/core_service.dart';
 import '../../models/node.dart';
+import '../../services/ip_info.dart';
 import '../../services/session.dart';
 import '../theme.dart';
 import '../util.dart';
@@ -15,6 +16,7 @@ class NodesPage extends StatefulWidget {
 
 class _NodesPageState extends State<NodesPage> {
   String _query = '';
+  String _region = ''; // 空 = 全部；'?' = 其他（没有国旗）
 
   Future<void> _refresh() async {
     final s = context.read<Session>();
@@ -37,12 +39,26 @@ class _NodesPageState extends State<NodesPage> {
     final s = context.watch<Session>();
     final core = context.watch<CoreService>();
     final wide = MediaQuery.sizeOf(context).width >= 760;
-    final nodes = _query.isEmpty
-        ? s.nodes
-        : s.nodes.where((n) => n.displayName.toLowerCase().contains(_query.toLowerCase())).toList();
+    final q = _query.toLowerCase();
+    // 按地区统计（没有国旗的节点归入"其他"），按数量从多到少
+    final counts = <String, int>{};
+    for (final n in s.nodes) {
+      final c = n.countryCode ?? '?';
+      counts[c] = (counts[c] ?? 0) + 1;
+    }
+    final regions = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    if (_region.isNotEmpty && !counts.containsKey(_region)) _region = '';
+    final nodes = s.nodes
+        .where((n) =>
+            (_region.isEmpty || (n.countryCode ?? '?') == _region) &&
+            (q.isEmpty || n.displayName.toLowerCase().contains(q)))
+        .toList();
+    final showAuto = q.isEmpty && _region.isEmpty;
+    final locale = Localizations.localeOf(context);
 
     return Column(children: [
       KPage(
+        maxWidth: 960,
         padding: EdgeInsets.fromLTRB(20, wide ? 32 : 12, 20, 8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -85,6 +101,24 @@ class _NodesPageState extends State<NodesPage> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
+          if (regions.length > 1) ...[
+            const SizedBox(height: 10),
+            // 地区按钮自动换行（电脑上鼠标不能横向拖动，所以不用横向滚动）
+            Wrap(spacing: 6, runSpacing: 6, children: [
+                _RegionChip(
+                  label: '${t.filterAll} ${s.nodes.length}',
+                  selected: _region.isEmpty,
+                  onTap: () => setState(() => _region = ''),
+                ),
+                for (final r in regions)
+                  _RegionChip(
+                    code: r.key == '?' ? null : r.key,
+                    label: '${r.key == '?' ? t.otherRegion : regionName(r.key, locale.languageCode, hant: locale.scriptCode == 'Hant')} ${r.value}',
+                    selected: _region == r.key,
+                    onTap: () => setState(() => _region = r.key),
+                  ),
+            ]),
+          ],
         ]),
       ),
       Expanded(
@@ -106,38 +140,56 @@ class _NodesPageState extends State<NodesPage> {
                     ),
                   ),
                 ])
-              : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 24, top: 6),
-                  itemCount: nodes.length + (_query.isEmpty ? 1 : 0),
-                  itemBuilder: (c, i) {
-                    if (_query.isEmpty && i == 0) {
-                      return KPage(
-                        child: _NodeTile(
-                          flag: '⚡',
-                          name: t.autoSelect,
-                          sub: core.autoNow == null
-                              ? t.autoSelectDesc
-                              : '${t.autoSelectDesc} · ${_nameOf(s, core.autoNow!)}',
-                          selected: core.selected == 'auto',
-                          onTap: () => core.selectNode('auto'),
+              : LayoutBuilder(builder: (context, c) {
+                  // 一行放几个：手机 1 个，普通窗口 2 个，很宽 3 个
+                  final w = c.maxWidth.clamp(0.0, 960.0) - 40;
+                  final cols = w >= 840 ? 3 : (w >= 480 ? 2 : 1);
+                  final hPad = (c.maxWidth - w) / 2;
+                  return CustomScrollView(slivers: [
+                    if (showAuto)
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 8),
+                        sliver: SliverToBoxAdapter(
+                          child: _NodeTile(
+                            flag: '⚡',
+                            name: t.autoSelect,
+                            sub: core.autoNow == null
+                                ? t.autoSelectDesc
+                                : '${t.autoSelectDesc} · ${_nameOf(s, core.autoNow!)}',
+                            selected: core.selected == 'auto',
+                            onTap: () => core.selectNode('auto'),
+                          ),
                         ),
-                      );
-                    }
-                    final n = nodes[_query.isEmpty ? i - 1 : i];
-                    return KPage(
-                      child: _NodeTile(
-                        flag: n.flag,
-                        code: n.countryCode,
-                        name: n.plainName,
-                        sub: n.protocolLabel,
-                        multiplier: n.multiplier,
-                        delay: core.delays[n.tag],
-                        selected: core.selected == n.tag,
-                        onTap: () => core.selectNode(n.tag),
                       ),
-                    );
-                  },
-                ),
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(hPad, showAuto ? 0 : 6, hPad, 24),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: cols,
+                          mainAxisExtent: 56,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          childCount: nodes.length,
+                          (c, i) {
+                            final n = nodes[i];
+                            return _NodeTile(
+                              flag: n.flag,
+                              code: n.countryCode,
+                              name: n.plainName,
+                              sub: n.protocolLabel,
+                              multiplier: n.multiplier,
+                              delay: core.delays[n.tag],
+                              selected: core.selected == n.tag,
+                              onTap: () => core.selectNode(n.tag),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ]);
+                }),
         ),
       ),
     ]);
@@ -181,67 +233,96 @@ class _NodeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: KColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: selected ? KColors.lavender : KColors.border, width: selected ? 1.6 : 1),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
+    return Material(
+      color: selected ? KColors.accentSoft : KColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: selected ? KColors.lavender : KColors.border, width: selected ? 1.4 : 1),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: SizedBox(
+          height: 56,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(color: KColors.field, shape: BoxShape.circle),
-                child: code != null ? CountryFlag(code, width: 22) : Text(flag, style: const TextStyle(fontSize: 21)),
+              SizedBox(
+                width: 24,
+                child: Center(
+                  child: code != null ? CountryFlag(code, width: 22) : Text(flag, style: const TextStyle(fontSize: 18)),
+                ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w600 : FontWeight.w500)),
                   const SizedBox(height: 2),
                   Row(children: [
                     Flexible(
-                      child: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: KColors.faint, fontSize: 12)),
+                      child: Text(sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: KColors.faint, fontSize: 11)),
                     ),
-                    if (multiplier != null) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                            color: KColors.field, borderRadius: BorderRadius.circular(6)),
-                        child: Text(multiplier!,
-                            style: const TextStyle(fontSize: 11, color: KColors.sub)),
-                      ),
-                    ],
+                    if (multiplier != null) ...[const SizedBox(width: 5), KTag(multiplier!)],
                   ]),
                 ]),
               ),
               if (delay != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.only(left: 6),
                   child: Text(
                     delay == -2 ? '-' : (delay! < 0 ? t.timeout : '${delay}ms'),
-                    style: TextStyle(color: delayColor(delay), fontSize: 13, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: delayColor(delay), fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ),
-              Icon(
-                selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                color: selected ? KColors.lavender : KColors.faint,
-              ),
+              if (selected) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.check_circle_rounded, size: 16, color: KColors.lavender),
+              ],
             ]),
           ),
         ),
       ),
     );
   }
+}
+
+/// 地区筛选按钮
+class _RegionChip extends StatelessWidget {
+  const _RegionChip({required this.label, required this.selected, required this.onTap, this.code});
+  final String label;
+  final String? code;
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 30,
+        child: Material(
+          color: selected ? KColors.ink : KColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: selected ? KColors.ink : KColors.border),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (code != null) ...[CountryFlag(code, width: 16), const SizedBox(width: 6)],
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        color: selected ? Colors.white : KColors.ink)),
+              ]),
+            ),
+          ),
+        ),
+      );
 }

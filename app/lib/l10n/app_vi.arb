@@ -172,6 +172,7 @@
  "feedbackSent": "Cảm ơn! Đã nhận phản hồi",
  "feedbackFailed": "Gửi thất bại. Hãy thử lại sau",
  "feedbackEmpty": "Vui lòng nhập mô tả",
+ "otherRegion": "Khác",
  "logout": "Đăng xuất",
  "switchToAccount": "Đăng nhập tài khoản",
  "logoutConfirm": "Đăng xuất? Kết nối sẽ ngắt và xóa máy chủ đã lưu.",

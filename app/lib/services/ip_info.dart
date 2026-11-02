@@ -318,3 +318,11 @@ String countryName(IpInfo i, String languageCode, {bool hant = false}) {
   if (!hant) return zh;
   return zh.split('').map((c) => _toHant[c] ?? c).join();
 }
+
+/// 地区代码 → 显示名（中文界面显示中文；其它语言显示代码，旁边有国旗）
+String regionName(String code, String languageCode, {bool hant = false}) {
+  if (languageCode != 'zh') return code;
+  final zh = _zhCountry[code];
+  if (zh == null) return code;
+  return hant ? zh.split('').map((c) => _toHant[c] ?? c).join() : zh;
+}

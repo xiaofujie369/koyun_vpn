@@ -172,6 +172,7 @@
  "feedbackSent": "已收到您的回報，感謝！",
  "feedbackFailed": "送出失敗，請稍後重試或提交工單",
  "feedbackEmpty": "請先填寫問題描述",
+ "otherRegion": "其他",
  "logout": "登出",
  "switchToAccount": "切換為帳號登入",
  "logoutConfirm": "確定要登出嗎？登出後將中斷連線並清除本機儲存的節點。",

@@ -172,6 +172,7 @@
  "feedbackSent": "Thanks! We've received your feedback",
  "feedbackFailed": "Couldn't send. Try again later or open a ticket",
  "feedbackEmpty": "Please describe the problem first",
+ "otherRegion": "Other",
  "logout": "Sign out",
  "switchToAccount": "Sign in with account",
  "logoutConfirm": "Sign out? This disconnects and clears saved servers on this device.",

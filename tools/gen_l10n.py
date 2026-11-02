@@ -178,6 +178,7 @@ T = {
  "feedbackSent": ("已收到您的反馈，感谢！", "已收到您的回報，感謝！", "Thanks! We've received your feedback", "フィードバックを受け付けました。ありがとうございます", "피드백을 받았습니다. 감사합니다!", "Спасибо! Отзыв получен", "Cảm ơn! Đã nhận phản hồi"),
  "feedbackFailed": ("发送失败，请稍后重试或提交工单", "送出失敗，請稍後重試或提交工單", "Couldn't send. Try again later or open a ticket", "送信に失敗しました。後で再試行するかチケットを送信してください", "전송 실패. 나중에 다시 시도하거나 티켓을 보내세요", "Не удалось отправить. Повторите позже", "Gửi thất bại. Hãy thử lại sau"),
  "feedbackEmpty": ("请先填写问题描述", "請先填寫問題描述", "Please describe the problem first", "内容を入力してください", "내용을 입력해 주세요", "Сначала опишите проблему", "Vui lòng nhập mô tả"),
+ "otherRegion": ("其他", "其他", "Other", "その他", "기타", "Другие", "Khác"),
  "logout": ("退出登录", "登出", "Sign out", "ログアウト", "로그아웃", "Выйти", "Đăng xuất"),
  "switchToAccount": ("切换为账号登录", "切換為帳號登入", "Sign in with account", "アカウントでログイン", "계정으로 로그인", "Войти в аккаунт", "Đăng nhập tài khoản"),
  "logoutConfirm": ("确定要退出吗？退出后将断开连接并清除本机保存的节点。", "確定要登出嗎？登出後將中斷連線並清除本機儲存的節點。", "Sign out? This disconnects and clears saved servers on this device.", "ログアウトしますか？接続を切断し、保存されたサーバーを削除します。", "로그아웃할까요? 연결이 해제되고 저장된 서버가 삭제됩니다.", "Выйти? Соединение будет разорвано, сохранённые серверы удалены.", "Đăng xuất? Kết nối sẽ ngắt và xóa máy chủ đã lưu."),

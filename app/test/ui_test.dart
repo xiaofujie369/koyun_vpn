@@ -39,7 +39,13 @@ Future<(Session, CoreService)> _services() async {
     {'title': '公告：新节点上线', 'content': '<p>香港节点已扩容</p>'}
   ];
   session.nodes = [
-    for (final n in ['🇭🇰香港D01-1X', '🇯🇵日本D13-1X', '🇹🇼台湾A04-1X直连', '🇺🇸美国洛杉矶-2X', '🇸🇬新加坡B02-1X'])
+    for (final n in [
+      '🇭🇰香港D01-1X', '🇭🇰香港D02-1X', '🇭🇰香港D03-1X移动', '🇭🇰香港IEPL-2X', '🇭🇰香港HKT-1X', '🇭🇰香港家宽-3X',
+      '🇯🇵日本D13-1X', '🇯🇵日本东京-1X', '🇯🇵日本大阪ISP-2X', '🇯🇵日本D14-1X',
+      '🇹🇼台湾A04-1X直连', '🇹🇼台湾Hinet-1X',
+      '🇺🇸美国洛杉矶-2X', '🇺🇸美国圣何塞-1X', '🇺🇸美国纽约家宽超长名字测试节点-3X',
+      '🇸🇬新加坡B02-1X', '🇸🇬新加坡B03-1X', '🇰🇷韩国首尔-1X', '🇬🇧英国伦敦-2X', '无国旗测试节点'
+    ])
       ProxyNode({'tag': n, 'type': 'anytls', 'server': '1.2.3.4', 'server_port': 443}),
   ];
   return (session, CoreService(storage, session));
