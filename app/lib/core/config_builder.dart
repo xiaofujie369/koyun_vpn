@@ -95,6 +95,10 @@ class ConfigBuilder {
           {'clash_mode': 'Direct', 'server': 'dns-direct'},
           {'clash_mode': 'Global', 'server': 'dns-remote'},
           {'rule_set': ['geosite-cn'], 'server': 'dns-direct'},
+          {'rule_set': ['geosite-geolocation-notcn'], 'server': 'dns-remote'},
+          // 不在任何名单里的域名（智能分流模式）：仍用防污染的远程 DNS，但告诉它"用户在中国"，
+          // 国内网站会返回国内的服务器 IP，随后被 geoip-cn 判定为直连，不再绕道国外。
+          {'clash_mode': 'Rule', 'server': 'dns-remote', 'client_subnet': '114.114.114.0/24'},
         ],
         'final': 'dns-remote',
         'strategy': strategy,
@@ -127,10 +131,14 @@ class ConfigBuilder {
           {'ip_is_private': true, 'outbound': 'direct'},
           {'clash_mode': 'Direct', 'outbound': 'direct'},
           {'clash_mode': 'Global', 'outbound': 'proxy'},
-          {
-            'rule_set': ['geosite-cn', 'geoip-cn'],
-            'outbound': 'direct',
-          },
+          {'rule_set': ['geosite-cn'], 'outbound': 'direct'},
+          // 已知国外网站：直接走代理，不需要先解析域名
+          {'rule_set': ['geosite-geolocation-notcn'], 'outbound': 'proxy'},
+          // 其余域名先解析出 IP，再判断是不是国内 IP。
+          // 修复：以前系统代理模式下连接只有域名没有 IP，geoip-cn 永远匹配不上，
+          // 不在名单里的国内网站全部被送去代理，绕道国外导致打开很慢。
+          {'action': 'resolve'},
+          {'rule_set': ['geoip-cn'], 'outbound': 'direct'},
         ],
         'rule_set': [
           {
@@ -138,6 +146,12 @@ class ConfigBuilder {
             'tag': 'geosite-cn',
             'format': 'binary',
             'path': '${o.ruleSetDir}/geosite-cn.srs',
+          },
+          {
+            'type': 'local',
+            'tag': 'geosite-geolocation-notcn',
+            'format': 'binary',
+            'path': '${o.ruleSetDir}/geosite-geolocation-notcn.srs',
           },
           {
             'type': 'local',

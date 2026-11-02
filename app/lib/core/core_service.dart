@@ -93,7 +93,7 @@ class CoreService extends ChangeNotifier {
   /// 把内置的分流规则释放到数据目录（内核需要文件路径）
   Future<void> _installRuleSets() async {
     await Directory(_ruleDir).create(recursive: true);
-    for (final name in ['geosite-cn.srs', 'geoip-cn.srs']) {
+    for (final name in ['geosite-cn.srs', 'geoip-cn.srs', 'geosite-geolocation-notcn.srs']) {
       final f = File('$_ruleDir/$name');
       final data = await rootBundle.load('assets/rules/$name');
       final bytes = data.buffer.asUint8List();
