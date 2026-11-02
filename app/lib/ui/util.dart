@@ -316,3 +316,33 @@ class BtnSpinner extends StatelessWidget {
   Widget build(BuildContext context) =>
       SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: color));
 }
+
+/// 国旗图片（assets/flags/xx.png，来源 flagcdn.com）。
+/// Windows 自带字体显示不了国旗表情，所以所有平台统一用图片；没有对应图片时显示 🌐。
+class CountryFlag extends StatelessWidget {
+  const CountryFlag(this.code, {super.key, this.width = 22});
+  final String? code;
+  final double width;
+  @override
+  Widget build(BuildContext context) {
+    final c = code?.toLowerCase();
+    final h = width * 0.75;
+    Widget fallback() => SizedBox(
+          width: width,
+          height: h,
+          child: Center(child: Text('🌐', style: TextStyle(fontSize: h * 0.9, height: 1))),
+        );
+    if (c == null || c.length != 2) return fallback();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(3),
+      child: Container(
+        foregroundDecoration: BoxDecoration(
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 0.6),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Image.asset('assets/flags/$c.png',
+            width: width, height: h, fit: BoxFit.cover, errorBuilder: (_, _, _) => fallback()),
+      ),
+    );
+  }
+}

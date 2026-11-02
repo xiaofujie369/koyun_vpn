@@ -31,6 +31,10 @@ class Storage {
   String? get deviceId => _p.getString('device_id');
   Future<void> setDeviceId(String v) => _p.setString('device_id', v);
 
+  /// 上次查到的本机 IP 信息（JSON），启动时先显示
+  String? get lastLocalIp => _p.getString('last_local_ip');
+  Future<void> setLastLocalIp(String v) => _p.setString('last_local_ip', v);
+
   // ---- 账号 ----
   AccountMode get mode =>
       AccountMode.values.firstWhere((m) => m.name == _p.getString('mode'),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -42,9 +43,43 @@ class IpInfo {
         broadcast: j['isBroadcast'] as bool?,
       );
 
+  /// 读取自己保存的缓存（toJson 的格式）
+  factory IpInfo.fromCache(Map<String, dynamic> j) => IpInfo(
+        ip: (j['ip'] ?? '').toString(),
+        countryCode: (j['country_code'] ?? '').toString(),
+        country: (j['country'] ?? '').toString(),
+        city: (j['city'] ?? '').toString(),
+        asn: (j['asn'] as num?)?.toInt() ?? 0,
+        org: (j['org'] ?? '').toString(),
+        fraudScore: (j['fraud_score'] as num?)?.toInt(),
+        residential: j['residential'] as bool?,
+        broadcast: j['broadcast'] as bool?,
+      );
+
+  /// 国内接口 myip.ipip.net 的结果：{"ret":"ok","data":{"ip":"..","location":["中国","上海","上海","","电信"]}}
+  /// 只有 IP / 位置 / 运营商，没有风险值等信息
+  factory IpInfo.fromIpip(Map<String, dynamic> j) {
+    final d = (j['data'] as Map?) ?? const {};
+    final loc = ((d['location'] as List?) ?? const []).map((e) => e.toString()).toList();
+    String at(int i) => i < loc.length ? loc[i] : '';
+    final country = at(0);
+    final city = at(2).isNotEmpty ? at(2) : at(1);
+    return IpInfo(
+      ip: (d['ip'] ?? '').toString(),
+      countryCode: _zhCountry.entries.where((e) => e.value == country).map((e) => e.key).firstOrNull ?? '',
+      country: country,
+      city: city == country ? '' : city,
+      org: at(4),
+    );
+  }
+
+  /// 是否有完整信息（风险值 / 住宅等），国内接口的结果没有
+  bool get detailed => fraudScore != null || residential != null;
+
   Map<String, dynamic> toJson() => {
         'ip': ip,
         'country_code': countryCode,
+        'country': country,
         'city': city,
         'asn': asn,
         'org': org,
@@ -80,6 +115,7 @@ class IpService extends ChangeNotifier {
   bool loadingLocal = false, loadingProxy = false;
   bool localFailed = false, proxyFailed = false;
   bool showFull = false;
+  bool localCached = false; // 当前显示的是上次保存的结果（正在刷新）
 
   CoreStatus? _lastStatus;
   String? _lastSelected;
@@ -92,6 +128,14 @@ class IpService extends ChangeNotifier {
 
   /// App 启动时调用
   void start() {
+    // 先显示上次保存的本机 IP，后台再刷新
+    try {
+      final c = core.storage.lastLocalIp;
+      if (c != null && local == null) {
+        local = IpInfo.fromCache((jsonDecode(c) as Map).cast<String, dynamic>());
+        localCached = true;
+      }
+    } catch (_) {}
     _lastStatus = core.status;
     _lastSelected = core.selected;
     refreshLocal();
@@ -125,20 +169,54 @@ class IpService extends ChangeNotifier {
     _debounce = Timer(const Duration(milliseconds: 1500), refreshProxy);
   }
 
+  int _localRetry = 0;
+  Timer? _retryTimer;
+
+  /// 查询本机 IP：同时请求国内接口（快，国内必通）和 ippure（信息全，但国内直连可能慢），
+  /// 谁先回来先显示谁；ippure 的完整结果回来后再更新。都失败则自动重试。
   Future<void> refreshLocal() async {
     // TUN 模式 / 手机 VPN 连接中：直接请求也会走代理，测不出本机 IP，保留连接前的结果
     if (core.running && (core.isMobile || core.storage.tunMode)) return;
     if (loadingLocal) return;
+    _retryTimer?.cancel();
     loadingLocal = true;
     localFailed = false;
     notifyListeners();
-    try {
-      local = await _fetch();
-    } catch (_) {
-      localFailed = true;
-    }
+
+    var gotFull = false;
+    var gotAny = false;
+    final full = _fetch().then((i) {
+      gotFull = gotAny = true;
+      _setLocal(i);
+    }).catchError((_) {});
+    final fast = _fetchIpip().then((i) {
+      // ippure 已经先回来了就不用国内接口的简略结果
+      if (!gotFull) {
+        gotAny = true;
+        _setLocal(i);
+      }
+    }).catchError((_) {});
+    await Future.wait([full, fast]);
+
     loadingLocal = false;
+    localFailed = !gotAny;
+    if (gotAny) {
+      _localRetry = 0;
+    } else if (_localRetry < 3) {
+      // 网络刚切换 / 接口偶尔不通：5 秒、15 秒、30 秒后再试
+      final wait = const [5, 15, 30][_localRetry++];
+      _retryTimer = Timer(Duration(seconds: wait), refreshLocal);
+    }
     notifyListeners();
+  }
+
+  void _setLocal(IpInfo i) {
+    // 同一个 IP 已经有完整信息时，不用简略结果覆盖
+    if (!i.detailed && local != null && local!.ip == i.ip && local!.detailed) return;
+    local = i;
+    localCached = false;
+    notifyListeners();
+    unawaited(core.storage.setLastLocalIp(jsonEncode(i.toJson())));
   }
 
   Future<void> refreshProxy() async {
@@ -160,10 +238,22 @@ class IpService extends ChangeNotifier {
     await Future.wait([refreshLocal(), refreshProxy()]);
   }
 
-  static Future<IpInfo> _fetch({int? proxyPort}) async {
+  static Future<IpInfo> _fetchIpip() async {
+    final dio = _dio(null);
+    try {
+      final r = await dio.get<Map<String, dynamic>>('https://myip.ipip.net/json');
+      final info = IpInfo.fromIpip(r.data!);
+      if (info.ip.isEmpty) throw Exception('empty');
+      return info;
+    } finally {
+      dio.close(force: true);
+    }
+  }
+
+  static Dio _dio(int? proxyPort) {
     final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 6),
+      receiveTimeout: const Duration(seconds: 8),
       responseType: ResponseType.json,
     ));
     dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
@@ -172,6 +262,11 @@ class IpService extends ChangeNotifier {
       c.findProxy = (_) => proxyPort == null ? 'DIRECT' : 'PROXY 127.0.0.1:$proxyPort';
       return c;
     });
+    return dio;
+  }
+
+  static Future<IpInfo> _fetch({int? proxyPort}) async {
+    final dio = _dio(proxyPort);
     try {
       final r = await dio.get<Map<String, dynamic>>(url);
       final info = IpInfo.fromJson(r.data!);
@@ -186,6 +281,7 @@ class IpService extends ChangeNotifier {
   void dispose() {
     core.removeListener(_onCore);
     _debounce?.cancel();
+    _retryTimer?.cancel();
     super.dispose();
   }
 }
@@ -213,7 +309,10 @@ const _toHant = {
 
 /// 按语言显示国家名
 String countryName(IpInfo i, String languageCode, {bool hant = false}) {
-  if (languageCode != 'zh') return i.country.isEmpty ? i.countryCode : i.country;
+  if (languageCode != 'zh') {
+    final ascii = i.country.codeUnits.every((c) => c < 128);
+    return (i.country.isEmpty || !ascii) ? i.countryCode : i.country;
+  }
   final zh = _zhCountry[i.countryCode];
   if (zh == null) return i.country.isEmpty ? i.countryCode : i.country;
   if (!hant) return zh;

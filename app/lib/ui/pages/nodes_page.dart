@@ -127,6 +127,7 @@ class _NodesPageState extends State<NodesPage> {
                     return KPage(
                       child: _NodeTile(
                         flag: n.flag,
+                        code: n.countryCode,
                         name: n.plainName,
                         sub: n.protocolLabel,
                         multiplier: n.multiplier,
@@ -162,6 +163,7 @@ class _NodesPageState extends State<NodesPage> {
 class _NodeTile extends StatelessWidget {
   const _NodeTile({
     required this.flag,
+    this.code,
     required this.name,
     required this.sub,
     required this.selected,
@@ -170,6 +172,7 @@ class _NodeTile extends StatelessWidget {
     this.delay,
   });
   final String flag, name, sub;
+  final String? code; // 地区代码，有则显示国旗图片
   final String? multiplier;
   final int? delay;
   final bool selected;
@@ -197,7 +200,7 @@ class _NodeTile extends StatelessWidget {
                 height: 40,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(color: KColors.field, shape: BoxShape.circle),
-                child: Text(flag, style: const TextStyle(fontSize: 21)),
+                child: code != null ? CountryFlag(code, width: 22) : Text(flag, style: const TextStyle(fontSize: 21)),
               ),
               const SizedBox(width: 14),
               Expanded(

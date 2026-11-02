@@ -1,7 +1,7 @@
 name: koyun_vpn
 description: Koyun VPN 客户端（sing-box 内核，对接 Xboard）
 publish_to: 'none'
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: ^3.9.0
@@ -31,6 +31,7 @@ flutter:
   generate: true
   assets:
     - assets/images/
+    - assets/flags/
     - assets/rules/
   fonts:
     - family: HarmonyOS Sans

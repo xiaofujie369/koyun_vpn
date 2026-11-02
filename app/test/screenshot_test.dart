@@ -99,8 +99,14 @@ void main() {
       addTearDown(tester.view.reset);
       final (s, c) = await _services();
       await tester.pumpWidget(RepaintBoundary(child: _app(s, c)));
+      c.selected = s.nodes.first.tag;
       tester.state<HomeShellState>(find.byType(HomeShell)).goTo(page);
       await tester.pump(const Duration(milliseconds: 600));
+      // 等图片（国旗）真正解码完成
+      for (var k = 0; k < 3; k++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       await expectLater(find.byType(RepaintBoundary).first, matchesGoldenFile('shots/$page.png'));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 2));

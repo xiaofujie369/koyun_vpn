@@ -85,6 +85,22 @@ void main() {
     expect(countryName(i, 'zh'), '台湾');
     expect(countryName(i, 'zh', hant: true), '台灣');
     expect(countryName(i, 'en'), 'Taiwan');
+    // 国内接口格式
+    final c = IpInfo.fromIpip({
+      'ret': 'ok',
+      'data': {'ip': '203.0.113.9', 'location': ['中国', '上海', '上海', '', '电信']}
+    });
+    expect(c.ip, '203.0.113.9');
+    expect(c.countryCode, 'CN');
+    expect(c.city, '上海');
+    expect(c.org, '电信');
+    expect(c.detailed, isFalse);
+    expect(countryName(c, 'zh'), '中国');
+    expect(countryName(c, 'en'), 'CN');
+    // 缓存读写
+    final back = IpInfo.fromCache(c.toJson());
+    expect(back.ip, c.ip);
+    expect(back.city, '上海');
   });
 
   test('版本号比较', () {

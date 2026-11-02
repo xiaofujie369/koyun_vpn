@@ -147,7 +147,8 @@ class _DashboardPageState extends State<DashboardPage> {
               _NodeCard(
                 node: node == null
                     ? (core.selected == 'auto' ? t.autoSelect : core.selected)
-                    : '${node.flag}  ${node.plainName}',
+                    : node.plainName,
+                code: node?.countryCode,
                 sub: core.selected == 'auto' ? t.autoSelectDesc : node?.protocolLabel ?? '',
                 onTap: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('nodes'),
               ),
@@ -262,14 +263,23 @@ class _SpeedRow extends StatelessWidget {
 }
 
 class _NodeCard extends StatelessWidget {
-  const _NodeCard({required this.node, required this.sub, required this.onTap});
+  const _NodeCard({required this.node, required this.sub, required this.onTap, this.code});
   final String node, sub;
+  final String? code; // 地区代码：显示国旗图片
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => KCard(
         onTap: onTap,
         child: Row(children: [
-          const IconBox(Icons.public_rounded),
+          code != null
+              ? Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: KColors.field, borderRadius: BorderRadius.circular(8.4)),
+                  child: CountryFlag(code, width: 20),
+                )
+              : const IconBox(Icons.public_rounded),
           const SizedBox(width: 16),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -519,7 +529,7 @@ class _IpCard extends StatelessWidget {
                   : (t.riskHigh, KColors.danger, const Color(0xFFFBE7E5));
       body = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          if (i.countryCode.isNotEmpty) ...[_Flag(i.countryCode), const SizedBox(width: 8)],
+          if (i.countryCode.isNotEmpty) ...[CountryFlag(i.countryCode, width: 20), const SizedBox(width: 8)],
           Flexible(
             child: SelectableText(ip.showFull ? i.ip : i.masked,
                 maxLines: 1,
@@ -594,19 +604,5 @@ class _IpCard extends StatelessWidget {
         body,
       ]),
     );
-  }
-}
-
-/// 国旗：Windows 系统字体不支持国旗表情，改为显示国家代码小标签
-class _Flag extends StatelessWidget {
-  const _Flag(this.code);
-  final String code;
-  @override
-  Widget build(BuildContext context) {
-    if (Platform.isWindows || code.length != 2) {
-      return KTag(code, color: KColors.ink);
-    }
-    final flag = String.fromCharCodes(code.codeUnits.map((c) => 0x1F1E6 + c - 0x41));
-    return Text(flag, style: const TextStyle(fontSize: 17));
   }
 }
