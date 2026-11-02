@@ -212,7 +212,7 @@ class _RegisterPageState extends State<RegisterPage> {
             child: KPage(
               maxWidth: 460,
               child: Column(children: [
-                const KLogo(size: 76),
+                const KLogo(size: 52),
                 const SizedBox(height: 22),
                 Text(t.registerTitle,
                     style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),

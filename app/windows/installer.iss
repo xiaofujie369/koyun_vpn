@@ -46,6 +46,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\Koyun.exe"; Description: "{cm:LaunchProgram,Koyun}"; Flags: nowait postinstall skipifsilent
+; App 内自动更新（静默安装）完成后自动重新打开
+Filename: "{app}\Koyun.exe"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 ; 卸载前结束内核并关闭系统代理，防止卸载后上不了网

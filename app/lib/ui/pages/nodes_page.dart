@@ -7,6 +7,7 @@ import '../../services/session.dart';
 import '../theme.dart';
 import '../util.dart';
 
+/// 节点页（Codex 风格列表：无卡片、整行悬停高亮、右侧显示延迟）
 class NodesPage extends StatefulWidget {
   const NodesPage({super.key});
   @override
@@ -36,83 +37,68 @@ class _NodesPageState extends State<NodesPage> {
     final t = context.t;
     final s = context.watch<Session>();
     final core = context.watch<CoreService>();
-    final wide = MediaQuery.sizeOf(context).width >= 760;
-    final nodes = _query.isEmpty
-        ? s.nodes
-        : s.nodes.where((n) => n.displayName.toLowerCase().contains(_query.toLowerCase())).toList();
+    final compact = MediaQuery.sizeOf(context).width < 600;
+    final q = _query.toLowerCase();
+    final nodes = q.isEmpty ? s.nodes : s.nodes.where((n) => n.displayName.toLowerCase().contains(q)).toList();
+    final subtitle = s.lastRefreshAt == null
+        ? t.nodesCount(s.nodes.length)
+        : '${t.nodesCount(s.nodes.length)} · ${t.updatedAt(_ago(context, s.lastRefreshAt!))}';
 
-    return Column(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       KPage(
-        padding: EdgeInsets.fromLTRB(20, wide ? 32 : 12, 20, 8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(t.navNodes, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text(
-                  s.lastRefreshAt == null
-                      ? t.nodesCount(s.nodes.length)
-                      : '${t.nodesCount(s.nodes.length)} · ${t.updatedAt(_ago(context, s.lastRefreshAt!))}',
-                  style: const TextStyle(color: KColors.sub, fontSize: 13),
-                ),
-              ]),
-            ),
-            IconButton.filledTonal(
-              tooltip: t.testLatency,
-              onPressed: core.testing ? null : core.testAll,
-              icon: core.testing
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.speed_rounded),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filledTonal(
-              tooltip: t.refreshSubscription,
-              onPressed: s.refreshing ? null : _refresh,
-              icon: s.refreshing
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.refresh_rounded),
-            ),
-          ]),
-          const SizedBox(height: 14),
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          PageHeader(
+            title: t.navNodes,
+            subtitle: subtitle,
+            actions: [
+              _Action(
+                compact: compact,
+                icon: Icons.speed_rounded,
+                label: t.testLatency,
+                busy: core.testing,
+                onTap: core.testAll,
+              ),
+              const SizedBox(width: 8),
+              _Action(
+                compact: compact,
+                icon: Icons.refresh_rounded,
+                label: t.refreshSubscription,
+                busy: s.refreshing,
+                onTap: _refresh,
+              ),
+            ],
+          ),
           if (s.nodes.length > 8)
             TextField(
               onChanged: (v) => setState(() => _query = v),
               decoration: InputDecoration(
-                isDense: true,
                 hintText: t.searchNodes,
-                prefixIcon: const Icon(Icons.search_rounded),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                prefixIcon: const Icon(Icons.search_rounded, size: 17),
               ),
             ),
         ]),
       ),
       Expanded(
         child: RefreshIndicator(
-          color: KColors.lavender,
+          color: KColors.accent,
           onRefresh: _refresh,
           child: s.nodes.isEmpty
               ? ListView(children: [
                   const SizedBox(height: 80),
-                  Center(child: Text(s.subscriptionUnavailable ? t.subUnavailable : t.noNodes,
-                      style: const TextStyle(color: KColors.sub))),
-                  const SizedBox(height: 16),
                   Center(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(minimumSize: const Size(160, 46)),
-                      onPressed: _refresh,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(t.refreshSubscription),
-                    ),
+                    child: Text(s.subscriptionUnavailable ? t.subUnavailable : t.noNodes,
+                        style: const TextStyle(color: KColors.sub)),
                   ),
                 ])
               : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 24, top: 6),
-                  itemCount: nodes.length + (_query.isEmpty ? 1 : 0),
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: nodes.length + (q.isEmpty ? 1 : 0),
                   itemBuilder: (c, i) {
-                    if (_query.isEmpty && i == 0) {
+                    if (q.isEmpty && i == 0) {
                       return KPage(
-                        child: _NodeTile(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _NodeRow(
                           flag: '⚡',
                           name: t.autoSelect,
                           sub: core.autoNow == null
@@ -123,9 +109,10 @@ class _NodesPageState extends State<NodesPage> {
                         ),
                       );
                     }
-                    final n = nodes[_query.isEmpty ? i - 1 : i];
+                    final n = nodes[q.isEmpty ? i - 1 : i];
                     return KPage(
-                      child: _NodeTile(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _NodeRow(
                         flag: n.flag,
                         name: n.plainName,
                         sub: n.protocolLabel,
@@ -159,8 +146,8 @@ class _NodesPageState extends State<NodesPage> {
   }
 }
 
-class _NodeTile extends StatelessWidget {
-  const _NodeTile({
+class _NodeRow extends StatelessWidget {
+  const _NodeRow({
     required this.flag,
     required this.name,
     required this.sub,
@@ -179,66 +166,71 @@ class _NodeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
-        color: KColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: selected ? KColors.lavender : KColors.border, width: selected ? 1.6 : 1),
-        ),
+        color: selected ? KColors.hover : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(9),
+          hoverColor: KColors.hover.withValues(alpha: 0.55),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Row(children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(color: KColors.field, shape: BoxShape.circle),
-                child: Text(flag, style: const TextStyle(fontSize: 21)),
-              ),
-              const SizedBox(width: 14),
+              SizedBox(width: 26, child: Text(flag, style: const TextStyle(fontSize: 17))),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
-                  const SizedBox(height: 2),
                   Row(children: [
                     Flexible(
-                      child: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: KColors.faint, fontSize: 12)),
+                      child: Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: KSize.body, fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
                     ),
-                    if (multiplier != null) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                            color: KColors.field, borderRadius: BorderRadius.circular(6)),
-                        child: Text(multiplier!,
-                            style: const TextStyle(fontSize: 11, color: KColors.sub)),
-                      ),
-                    ],
+                    if (multiplier != null) ...[const SizedBox(width: 6), KTag(multiplier!)],
                   ]),
+                  Text(sub,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: KColors.faint, fontSize: 11.5)),
                 ]),
               ),
               if (delay != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.only(left: 10),
                   child: Text(
-                    delay == -2 ? '-' : (delay! < 0 ? t.timeout : '${delay}ms'),
-                    style: TextStyle(color: delayColor(delay), fontSize: 13, fontWeight: FontWeight.w500),
+                    delay == -2 ? '-' : (delay! < 0 ? t.timeout : '$delay ms'),
+                    style: TextStyle(
+                        color: delayColor(delay), fontSize: KSize.small, fontFeatures: const [FontFeature.tabularFigures()]),
                   ),
                 ),
-              Icon(
-                selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                color: selected ? KColors.lavender : KColors.faint,
+              SizedBox(
+                width: 28,
+                child: selected ? const Icon(Icons.check_rounded, size: 16, color: KColors.accent) : null,
               ),
             ]),
           ),
         ),
       ),
     );
+  }
+}
+
+/// 页头按钮：宽屏显示"图标 + 文字"，手机只显示图标
+class _Action extends StatelessWidget {
+  const _Action({required this.compact, required this.icon, required this.label, required this.busy, required this.onTap});
+  final bool compact, busy;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final i = busy ? const BtnSpinner(color: KColors.sub) : Icon(icon, size: 15);
+    if (compact) {
+      return IconButton.outlined(tooltip: label, onPressed: busy ? null : onTap, icon: i);
+    }
+    return OutlinedButton.icon(onPressed: busy ? null : onTap, icon: i, label: Text(label));
   }
 }

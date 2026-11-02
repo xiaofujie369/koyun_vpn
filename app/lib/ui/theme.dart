@@ -61,9 +61,9 @@ ThemeData buildTheme() {
     textTheme: base.textTheme
         .apply(bodyColor: KColors.ink, displayColor: KColors.ink)
         .copyWith(
-          bodyMedium: const TextStyle(fontSize: KSize.body, height: 1.45, color: KColors.ink),
-          bodySmall: const TextStyle(fontSize: KSize.small, color: KColors.sub),
-          titleMedium: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: KColors.ink),
+          bodyMedium: const TextStyle(fontFamily: kFont, fontSize: KSize.body, height: 1.45, color: KColors.ink),
+          bodySmall: const TextStyle(fontFamily: kFont, fontSize: KSize.small, color: KColors.sub),
+          titleMedium: const TextStyle(fontFamily: kFont, fontSize: 14.5, fontWeight: FontWeight.w600, color: KColors.ink),
         ),
     appBarTheme: const AppBarTheme(
       backgroundColor: KColors.bg,
@@ -87,7 +87,7 @@ ThemeData buildTheme() {
       filled: true,
       fillColor: KColors.surface,
       isDense: true,
-      hintStyle: const TextStyle(color: KColors.faint, fontSize: KSize.body),
+      hintStyle: const TextStyle(fontFamily: kFont, color: KColors.faint, fontSize: KSize.body),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       prefixIconColor: KColors.faint,
       suffixIconColor: KColors.faint,

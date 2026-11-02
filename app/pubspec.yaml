@@ -1,7 +1,7 @@
 name: koyun_vpn
 description: Koyun VPN 客户端（sing-box 内核，对接 Xboard）
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: ^3.9.0
@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  package_info_plus: ^10.2.2
   path_provider: ^2.1.6
   provider: ^6.1.5+1
   shared_preferences: ^2.5.6

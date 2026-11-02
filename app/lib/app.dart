@@ -8,6 +8,7 @@ import 'services/session.dart';
 import 'ui/pages/home_shell.dart';
 import 'ui/pages/login_page.dart';
 import 'ui/theme.dart';
+import 'ui/widgets/window_bar.dart';
 
 /// 手动选择的语言（null = 跟随系统）
 final localeNotifier = ValueNotifier<Locale?>(null);
@@ -75,6 +76,10 @@ class KoyunApp extends StatelessWidget {
           context.read<Session>().api.language = apiLanguageTag(l);
           return l;
         },
+        // Windows：自绘标题栏放在所有页面上方（登录页、主界面、弹出的页面都有）
+        builder: (context, child) => useCustomTitleBar
+            ? Column(children: [const WindowBar(), Expanded(child: child!)])
+            : child!,
         home: const _Gate(),
       ),
     );

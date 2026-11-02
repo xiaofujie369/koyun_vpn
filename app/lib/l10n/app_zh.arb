@@ -131,6 +131,25 @@
  "ipv6Desc": "网络支持 IPv6 时开启",
  "logs": "运行日志",
  "about": "关于",
+ "connectNow": "连接",
+ "disconnectNow": "断开",
+ "checkUpdate": "检查更新",
+ "upToDate": "已是最新版本",
+ "updateNow": "立即更新",
+ "later": "稍后",
+ "updateFailed": "更新失败，请稍后重试，或到官网下载最新版",
+ "checkUpdateFailed": "检查更新失败，请检查网络",
+ "downloadingUpdate": "正在下载更新…",
+ "installingUpdate": "正在安装，完成后会自动重新打开",
+ "newVersionBadge": "有新版本",
+ "version": "版本",
+ "account": "账户",
+ "general": "通用",
+ "viewAll": "查看全部",
+ "minimize": "最小化",
+ "maximize": "最大化",
+ "close": "关闭",
+ "statusIdleHint": "选择节点后点击右下角按钮连接",
  "logout": "退出登录",
  "switchToAccount": "切换为账号登录",
  "logoutConfirm": "确定要退出吗？退出后将断开连接并清除本机保存的节点。",
@@ -207,6 +226,14 @@
   "placeholders": {
    "n": {
     "type": "int"
+   }
+  }
+ },
+ "newVersionTitle": "发现新版本 {v}",
+ "@newVersionTitle": {
+  "placeholders": {
+   "v": {
+    "type": "String"
    }
   }
  },

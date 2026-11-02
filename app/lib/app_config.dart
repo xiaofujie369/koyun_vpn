@@ -3,7 +3,11 @@ import 'dart:convert';
 /// 全局常量配置。改品牌 / 域名只需要改这里。
 class AppConfig {
   static const appName = 'Koyun';
-  static const appVersion = '1.0.0';
+  /// 版本号启动时从安装包读取（来源 pubspec.yaml 的 version），只需要改 pubspec 一处。
+  static String appVersion = '0.0.0';
+
+  /// 检查更新用的 GitHub 仓库（只读取公开的正式 Release，草稿不会被检测到）
+  static const updateRepo = 'xiaofujie369/koyun_vpn';
 
   /// sing-box 内核版本（必须和打包进去的内核一致，订阅接口按它决定输出格式）。
   static const singBoxVersion = '1.14.4';

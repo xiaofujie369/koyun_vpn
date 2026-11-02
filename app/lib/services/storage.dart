@@ -21,6 +21,12 @@ class Storage {
     await dataDir.create(recursive: true);
   }
 
+  /// 仅供自动化测试使用：不依赖系统目录
+  Future<void> initForTest(Directory dir) async {
+    _p = await SharedPreferences.getInstance();
+    dataDir = dir;
+  }
+
   // ---- 账号 ----
   AccountMode get mode =>
       AccountMode.values.firstWhere((m) => m.name == _p.getString('mode'),

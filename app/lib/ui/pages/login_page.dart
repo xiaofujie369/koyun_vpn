@@ -92,19 +92,19 @@ class _LoginPageState extends State<LoginPage> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 32),
             child: KPage(
-              maxWidth: 460,
+              maxWidth: 380,
               child: AutofillGroup(
                 child: Column(
                   children: [
-                    const KLogo(size: 84),
+                    const KLogo(size: 52),
                     const SizedBox(height: 28),
                     Text(t.welcomeBack,
-                        style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: -0.3)),
                     const SizedBox(height: 10),
                     Text(t.loginSubtitle,
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: KColors.sub, fontSize: 14)),
-                    const SizedBox(height: 36),
+                    const SizedBox(height: 28),
                     TextField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,

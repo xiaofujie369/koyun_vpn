@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
@@ -13,6 +14,7 @@ import 'app_config.dart';
 import 'core/core_service.dart';
 import 'services/session.dart';
 import 'services/storage.dart';
+import 'services/updater.dart';
 
 bool get isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
@@ -22,6 +24,10 @@ Future<void> main(List<String> args) async {
   if (isDesktop && !await _singleInstance(elevated: args.contains('--elevated'))) {
     exit(0);
   }
+
+  try {
+    AppConfig.appVersion = (await PackageInfo.fromPlatform()).version;
+  } catch (_) {}
 
   final storage = Storage();
   await storage.init();
@@ -33,12 +39,15 @@ Future<void> main(List<String> args) async {
   if (isDesktop) {
     await windowManager.ensureInitialized();
     await windowManager.waitUntilReadyToShow(
-      const WindowOptions(
-        size: Size(1180, 780),
-        minimumSize: Size(420, 640),
+      WindowOptions(
+        // 默认窗口大小参考 Codex 桌面端，适中不占满屏幕
+        size: const Size(900, 600),
+        minimumSize: const Size(760, 500),
         center: true,
         title: AppConfig.appName,
-        backgroundColor: Color(0xFFF7F3EA),
+        backgroundColor: const Color(0xFFFAF8F4),
+        // Windows 隐藏系统标题栏，改用 App 自己画的（保留窗口边框和拖动缩放）
+        titleBarStyle: Platform.isWindows ? TitleBarStyle.hidden : TitleBarStyle.normal,
       ),
       () async {
         await windowManager.show();
@@ -58,7 +67,13 @@ Future<void> main(List<String> args) async {
 
   await session.init();
   await core.init();
-  if (isDesktop) DesktopShell(core).install();
+  if (isDesktop) {
+    final shell = DesktopShell(core);
+    await shell.install();
+    Updater.instance.beforeInstall = shell.quit;
+  }
+  // 启动 5 秒后静默检查更新（有新版本时侧边栏显示提示，首页弹窗提醒一次）
+  Future.delayed(const Duration(seconds: 5), Updater.instance.check);
 }
 
 ServerSocket? _instanceLock;

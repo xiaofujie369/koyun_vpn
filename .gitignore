@@ -14,3 +14,6 @@ app/android/key.properties
 *.jks
 *.keystore
 secrets/
+# 个人资料（含账号密码，绝不能进仓库）
+koyunvpn资料/
+app/test/shots/
