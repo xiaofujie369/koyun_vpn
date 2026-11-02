@@ -1,6 +1,6 @@
 # Koyun 客户端（Windows / macOS / Android / iOS）
 
-基于 **sing-box 1.14.4** 内核、对接 Xboard（ss.koyun520.com）与 xbord-node-v3 节点的跨平台客户端。
+基于 **sing-box 1.14.4** 内核、对接 Xboard与 xbord-node-v3 节点的跨平台客户端。
 界面：Flutter，奶白主题，HarmonyOS Sans 字体，自动适配 7 种语言（简中 / 繁中 / 英 / 日 / 韩 / 俄 / 越）。
 
 ## 目录
