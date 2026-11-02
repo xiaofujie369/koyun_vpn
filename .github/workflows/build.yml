@@ -58,7 +58,9 @@ jobs:
           name: windows
           path: dist/*
 
+  # macOS 暂时不编译；需要时把 if 改为 true
   macos:
+    if: false
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -139,7 +141,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, macos]
+    needs: [windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
