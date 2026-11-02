@@ -10,7 +10,7 @@ class AppConfig {
   /// 被墙或故障时自动切到下一个。新增备用域名直接往后加。
   static const apiHosts = <String>[
     'https://ss.koyun520.com',
-    'https://bs.shy521.com',
+    'https://moli.shy521.com',
   ];
 
   /// 注册失败时引导客户打开的网页注册地址。
