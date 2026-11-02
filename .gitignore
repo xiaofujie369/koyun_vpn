@@ -1,0 +1,16 @@
+# 构建产物
+app/build/
+app/.dart_tool/
+app/.flutter-plugins*
+app/**/Pods/
+app/ios/Frameworks/
+app/android/app/libs/*.aar
+app/android/.gradle/
+app/android/local.properties
+app/android/**/GeneratedPluginRegistrant.*
+app/lib/l10n/gen/
+# 密钥（绝不能进仓库）
+app/android/key.properties
+*.jks
+*.keystore
+secrets/

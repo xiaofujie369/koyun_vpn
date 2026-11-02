@@ -1,0 +1,58 @@
+name: koyun_vpn
+description: Koyun VPN 客户端（sing-box 内核，对接 Xboard）
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dio: ^5.11.1
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  path_provider: ^2.1.6
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.6
+  tray_manager: ^0.5.2
+  url_launcher: ^6.3.3
+  window_manager: ^0.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: any
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/images/
+    - assets/rules/
+  fonts:
+    - family: HarmonyOS Sans
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans_SC_Regular.ttf
+          weight: 400
+        - asset: assets/fonts/HarmonyOS_Sans_SC_Medium.ttf
+          weight: 500
+        - asset: assets/fonts/HarmonyOS_Sans_SC_Bold.ttf
+          weight: 700
+
+flutter_launcher_icons:
+  image_path: "assets/images/logo.jpg"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  adaptive_icon_background: "#F7F3EA"
+  adaptive_icon_foreground: "assets/images/logo_fg.png"
+  min_sdk_android: 24
+  windows:
+    generate: true
+    image_path: "assets/images/logo.jpg"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/images/logo.jpg"

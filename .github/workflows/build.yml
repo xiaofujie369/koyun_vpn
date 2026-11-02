@@ -1,0 +1,152 @@
+# Windows / macOS / iOS 必须在对应系统上编译，所以放在 GitHub Actions。
+# Android 在自有编译机上编译（签名密钥不上传 GitHub，更安全）。
+# 触发：推送 v* 标签自动发布；也可在 Actions 页面手动运行。
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+  SING_BOX_VERSION: '1.14.4'
+  GO_VERSION: '1.26.10'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: 编译
+        working-directory: app
+        shell: bash
+        run: |
+          flutter pub get
+          dart run flutter_launcher_icons
+          flutter gen-l10n
+          flutter build windows --release
+      - name: 打包内核
+        shell: pwsh
+        run: |
+          $v = "${{ env.SING_BOX_VERSION }}"
+          Invoke-WebRequest "https://github.com/SagerNet/sing-box/releases/download/v$v/sing-box-$v-windows-amd64.zip" -OutFile sb.zip
+          Expand-Archive sb.zip -DestinationPath sb
+          $rel = "app/build/windows/x64/runner/Release"
+          Copy-Item "sb/sing-box-$v-windows-amd64/*" $rel -Exclude LICENSE
+          Get-ChildItem $rel
+      - name: 安装包
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $ver = (Select-String -Path app/pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches[0].Groups[1].Value
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          $lang = "${env:ProgramFiles(x86)}\Inno Setup 6\Languages\ChineseSimplified.isl"
+          if (!(Test-Path $lang)) { Invoke-WebRequest "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl" -OutFile $lang }
+          & $iscc "/DAppVersion=$ver" "/DSrcDir=$PWD\app\build\windows\x64\runner\Release" "/Odist" app\windows\installer.iss
+          Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath "dist/Koyun-$ver-windows-x64-portable.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: 编译
+        working-directory: app
+        run: |
+          flutter pub get
+          dart run flutter_launcher_icons
+          flutter gen-l10n
+          flutter build macos --release
+      - name: 打包内核（通用二进制，Intel + Apple 芯片）
+        run: |
+          v=${{ env.SING_BOX_VERSION }}
+          for a in amd64 arm64; do
+            curl -fsSL "https://github.com/SagerNet/sing-box/releases/download/v$v/sing-box-$v-darwin-$a.tar.gz" | tar -xz
+          done
+          lipo -create sing-box-$v-darwin-amd64/sing-box sing-box-$v-darwin-arm64/sing-box -output sing-box
+          APP=app/build/macos/Build/Products/Release/Koyun.app
+          cp sing-box "$APP/Contents/Resources/sing-box"
+          chmod +x "$APP/Contents/Resources/sing-box"
+          # 没有开发者证书时用临时签名（客户首次打开需右键→打开）
+          codesign --force --deep --sign - "$APP"
+          ver=$(grep -E '^version:' app/pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
+          mkdir -p dist dmg && cp -R "$APP" dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname Koyun -srcfolder dmg -ov -format UDZO "dist/Koyun-$ver-macos-universal.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: 编译 Libbox.xcframework（sing-box 内核）
+        run: |
+          go install github.com/sagernet/gomobile/cmd/gomobile@v0.1.13
+          go install github.com/sagernet/gomobile/cmd/gobind@v0.1.13
+          git clone --depth 1 -b v${{ env.SING_BOX_VERSION }} https://github.com/SagerNet/sing-box.git sb
+          cd sb
+          gomobile init
+          TAGS="with_gvisor,with_quic,with_utls,with_clash_api,with_low_memory,badlinkname,tfogo_checklinkname0"
+          LDF="-X github.com/sagernet/sing-box/constant.Version=${{ env.SING_BOX_VERSION }} -s -w -buildid= -checklinkname=0"
+          gomobile bind -v -target ios -iosversion 15.0 -libname=box -tags "$TAGS" -trimpath -ldflags "$LDF" -o ../app/ios/Frameworks/Libbox.xcframework ./experimental/libbox
+      - name: 加入 VPN 扩展并编译（未签名）
+        working-directory: app
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          gem install xcodeproj --no-document
+          ruby ios/add_packet_tunnel.rb
+          flutter pub get
+          dart run flutter_launcher_icons
+          flutter gen-l10n
+          flutter build ios --release --no-codesign
+          ver=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
+          mkdir -p ../dist Payload && cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr "../dist/Koyun-$ver-ios-unsigned.ipa" Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: 校验文件
+        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          draft: true

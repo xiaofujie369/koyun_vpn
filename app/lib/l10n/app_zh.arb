@@ -1,0 +1,221 @@
+{
+ "@@locale": "zh",
+ "appTagline": "安全 · 稳定 · 极速",
+ "welcomeBack": "欢迎回来",
+ "loginSubtitle": "请输入您的账号以访问您的私人网络",
+ "emailHint": "请输入邮箱地址",
+ "emailUserHint": "请输入邮箱用户名",
+ "passwordHint": "请输入密码",
+ "passwordMin8": "请输入密码（至少 8 位）",
+ "passwordAgain": "请再次输入密码",
+ "newPasswordHint": "请输入新密码（至少 8 位）",
+ "forgotPassword": "忘记密码？",
+ "loginButton": "立即登录",
+ "newUser": "新用户？",
+ "createAccount": "创建新账户",
+ "importSubscription": "导入订阅链接",
+ "invalidEmail": "邮箱格式不正确",
+ "loginFailed": "登录失败",
+ "loginFailedImportHint": "如果您有订阅链接，也可以切换到「本地导入订阅」模式直接使用。",
+ "networkErrorTitle": "无法连接服务器",
+ "networkErrorBody": "当前网络无法访问账号服务器。您可以稍后重试，或切换到「本地导入订阅」模式，粘贴订阅链接继续使用。",
+ "retry": "重试",
+ "switchToImport": "切换到本地导入",
+ "linkCopied": "链接已复制",
+ "copied": "已复制",
+ "copyLink": "复制",
+ "openBrowser": "用浏览器打开",
+ "registerFailed": "注册失败",
+ "webRegisterHint": "请使用浏览器打开以下网址进行网页注册，注册完成后回到 App 登录即可：",
+ "captchaNeedWeb": "当前注册需要人机验证，请前往网页注册。",
+ "registerTitle": "开启自由之旅",
+ "registerSubtitle": "加入我们的全球隐私网络",
+ "emailSuffixNotAllowed": "不支持该邮箱后缀，请从右侧下拉选择",
+ "gmailAliasNotAllowed": "Gmail 邮箱不支持包含「.」或「+」的别名",
+ "passwordTooShort": "密码至少 8 位",
+ "passwordMismatch": "两次输入的密码不一致",
+ "emailCodeHint": "请输入邮箱验证码",
+ "sendCode": "获取验证码",
+ "codeSent": "验证码已发送，请查收邮箱（含垃圾箱）",
+ "inviteCodeOptional": "如有邀请码请输入（可选）",
+ "inviteCodeRequired": "请输入邀请码（必填）",
+ "inviteRequired": "需要填写邀请码才能注册",
+ "registerButton": "创建账户并开始",
+ "registerOnWeb": "在网页上注册",
+ "backToLogin": "返回登录页面",
+ "resetPassword": "重置密码",
+ "passwordResetDone": "密码已重置，请重新登录",
+ "importDesc": "账号无法登录时，可以直接导入订阅使用。支持：订阅链接、节点分享链接（vless / vmess / trojan / ss / hysteria2 / tuic / anytls，可多行）、sing-box 配置。",
+ "importHint": "粘贴订阅链接或节点链接",
+ "pasteFromClipboard": "从剪贴板粘贴",
+ "importButton": "导入并使用",
+ "importNoNodes": "没有识别到可用节点",
+ "importNetworkFail": "订阅下载失败，请检查链接或网络",
+ "subUnavailable": "套餐已到期、流量已用完或账号不可用，请续费后刷新",
+ "sessionExpired": "登录已过期，请重新登录",
+ "navDashboard": "仪表盘",
+ "navNodes": "节点",
+ "navStore": "套餐商城",
+ "navProfile": "用户中心",
+ "localMode": "本地订阅",
+ "localModeDesc": "本地导入模式",
+ "manageAccount": "管理您的账户",
+ "connected": "已连接",
+ "connecting": "连接中…",
+ "disconnecting": "断开中…",
+ "notConnected": "未连接",
+ "tapToConnect": "点击按钮开启安全连接",
+ "noNodes": "暂无节点，请刷新订阅",
+ "needAdminTitle": "需要管理员权限",
+ "needAdminBody": "TUN 模式需要以管理员身份运行，才能接管全部系统流量（包括游戏和不走系统代理的软件）。是否以管理员身份重新启动？",
+ "relaunchAsAdmin": "以管理员重启",
+ "cancel": "取消",
+ "ok": "确定",
+ "connectFailed": "连接失败",
+ "renewNow": "去续费",
+ "download": "下载",
+ "upload": "上传",
+ "currentNode": "当前加速节点",
+ "switchNode": "切换",
+ "autoSelect": "自动选择",
+ "autoSelectDesc": "自动使用延迟最低的节点",
+ "tunMode": "TUN 模式",
+ "tunModeDesc": "接管全系统流量（游戏 / 所有软件）",
+ "routeMode": "出站规则",
+ "routeModeDesc": "分流策略，切换无需重连",
+ "modeRule": "智能分流",
+ "modeGlobal": "全局",
+ "modeDirect": "直连",
+ "longTerm": "长期有效",
+ "testLatency": "测速",
+ "refreshSubscription": "刷新订阅",
+ "searchNodes": "搜索节点",
+ "refreshNetworkFail": "刷新失败，已继续使用上次的节点",
+ "justNow": "刚刚",
+ "timeout": "超时",
+ "storeSubtitle": "选择适合你的订阅方案",
+ "filterAll": "全部",
+ "filterPeriodic": "周期性",
+ "filterOnetime": "一次性",
+ "noPlans": "暂无可购买的套餐",
+ "subscribeNow": "立即订阅",
+ "choosePeriod": "选择周期",
+ "paymentMethod": "支付方式",
+ "couponHint": "优惠码（可选）",
+ "waitingPayment": "已打开支付页面，完成支付后会自动到账…",
+ "payNow": "立即支付",
+ "paySuccess": "支付成功，套餐已生效",
+ "noPaymentMethod": "暂无可用的支付方式",
+ "cancelPendingAsk": "是否取消之前未支付的订单后重新下单？",
+ "cancelPendingOrder": "取消旧订单",
+ "pendingCancelled": "已取消，请重新支付",
+ "periodMonth": "月付",
+ "periodQuarter": "季付",
+ "periodHalfYear": "半年付",
+ "periodYear": "年付",
+ "periodTwoYear": "两年付",
+ "periodThreeYear": "三年付",
+ "periodOnetime": "一次性",
+ "periodReset": "流量重置包",
+ "profileSubtitle": "管理您的账户与服务",
+ "helpSupport": "帮助与支持",
+ "orders": "订单记录",
+ "tickets": "我的工单",
+ "website": "官方网站",
+ "joinGroup": "加入群组",
+ "settings": "设置",
+ "language": "语言",
+ "followSystem": "跟随系统",
+ "autoConnect": "启动时自动连接",
+ "autoConnectDesc": "打开 App 后自动连接上次的节点",
+ "ipv6Desc": "网络支持 IPv6 时开启",
+ "logs": "运行日志",
+ "about": "关于",
+ "logout": "退出登录",
+ "switchToAccount": "切换为账号登录",
+ "logoutConfirm": "确定要退出吗？退出后将断开连接并清除本机保存的节点。",
+ "noPlan": "暂无套餐",
+ "expireDate": "到期时间",
+ "usedTraffic": "已用流量",
+ "renewPlan": "续费套餐",
+ "daysLeft": "有效期还剩 {n} 天",
+ "@daysLeft": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "trafficLeft": "剩余流量：{v}",
+ "@trafficLeft": {
+  "placeholders": {
+   "v": {
+    "type": "String"
+   }
+  }
+ },
+ "nodesCount": "共 {n} 个节点",
+ "@nodesCount": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "updatedAt": "{v}更新",
+ "@updatedAt": {
+  "placeholders": {
+   "v": {
+    "type": "String"
+   }
+  }
+ },
+ "minutesAgo": "{n} 分钟前",
+ "@minutesAgo": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "hoursAgo": "{n} 小时前",
+ "@hoursAgo": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "daysAgo": "{n} 天前",
+ "@daysAgo": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "refreshOk": "订阅已更新，共 {n} 个节点",
+ "@refreshOk": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "resetIn": "已用流量将在 {n} 日后重置",
+ "@resetIn": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "planTraffic": "{v} 流量",
+ "@planTraffic": {
+  "placeholders": {
+   "v": {
+    "type": "String"
+   }
+  }
+ }
+}
