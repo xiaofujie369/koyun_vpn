@@ -14,9 +14,6 @@ import '../util.dart';
 import '../widgets/power_button.dart';
 import 'home_shell.dart';
 
-/// 首页（仿 Codex 桌面端首页）：
-/// 内容垂直居中——状态标题 + 一个"输入框式"的操作卡片（当前节点 / 出站规则 / TUN / 连接按钮），
-/// 卡片下方一行淡色的流量信息。
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
   @override
@@ -40,302 +37,143 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
+  Future<void> _toggle() async {
+    final core = context.read<CoreService>();
+    final s = context.read<Session>();
+    final t = context.t;
+    if (!core.running && s.nodes.isEmpty) {
+      toast(context, s.subscriptionUnavailable ? t.subUnavailable : t.noNodes);
+      return;
+    }
+    await core.toggle();
+    if (!mounted) return;
+    if (core.needAdmin) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text(t.needAdminTitle),
+          content: Text(t.needAdminBody),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t.cancel)),
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(t.relaunchAsAdmin),
+            ),
+          ],
+        ),
+      );
+      if (ok == true) {
+        await core.relaunchElevated();
+      } else {
+        await core.setTunMode(false);
+      }
+    } else if (core.lastError != null && !core.running) {
+      _showError(core);
+    }
+  }
+
+  void _showError(CoreService core) {
+    final t = context.t;
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(t.connectFailed),
+        content: SingleChildScrollView(
+          child: SelectableText(core.lastError ?? '', style: const TextStyle(fontSize: 13)),
+        ),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(c),
+            child: Text(t.ok),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final core = context.watch<CoreService>();
     final s = context.watch<Session>();
-    final mobile = Platform.isAndroid || Platform.isIOS;
-    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final wide = MediaQuery.sizeOf(context).width >= 760;
     final statusText = switch (core.status) {
       CoreStatus.running => t.connected,
       CoreStatus.starting => t.connecting,
       CoreStatus.stopping => t.disconnecting,
       CoreStatus.stopped => t.notConnected,
     };
-    final sub = core.running && core.connectedAt != null
-        ? fmtDuration(DateTime.now().difference(core.connectedAt!))
-        : t.statusIdleHint;
-
-    final content = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (s.notices.isNotEmpty) ...[_NoticeBar(notice: s.notices.first), const SizedBox(height: 10)],
-      if (s.subscriptionUnavailable) ...[
-        _WarnBar(
-          text: t.subUnavailable,
-          action: Platform.isIOS ? null : t.renewNow,
-          onAction: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('store'),
-        ),
-        const SizedBox(height: 10),
-      ],
-      SizedBox(height: narrow ? 12 : 28),
-      if (narrow) ...[
-        Center(child: PowerButton(status: core.status, onTap: () => connectToggle(context), size: 120)),
-        const SizedBox(height: 18),
-      ],
-      Center(
-        child: Text(statusText,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w600, letterSpacing: -0.3)),
-      ),
-      const SizedBox(height: 6),
-      Center(
-        child: Text(sub,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: KColors.sub,
-              fontSize: KSize.body,
-              fontFeatures: const [FontFeature.tabularFigures()],
-              letterSpacing: core.running ? 1 : 0,
-            )),
-      ),
-      const SizedBox(height: 26),
-      _Composer(core: core, session: s, showButton: !narrow, showTun: !mobile),
-      const SizedBox(height: 12),
-      _InfoLine(core: core, session: s),
-      const SizedBox(height: 26),
-      const _NetworkPanel(),
-    ]);
+    final node = core.currentNode;
+    final desktop = !(Platform.isAndroid || Platform.isIOS);
 
     return RefreshIndicator(
-      color: KColors.accent,
+      color: KColors.lavender,
       onRefresh: () => s.refresh(),
-      child: LayoutBuilder(
-        builder: (context, c) => SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: (c.maxHeight - 40).clamp(0, double.infinity)),
-            child: Center(
-              child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 620), child: content),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// "输入框式"操作卡片：上半部分是当前节点，下半部分是一排小控件 + 右下角圆形连接按钮
-class _Composer extends StatelessWidget {
-  const _Composer({required this.core, required this.session, required this.showButton, required this.showTun});
-  final CoreService core;
-  final Session session;
-  final bool showButton, showTun;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final node = core.currentNode;
-    final auto = core.selected == 'auto';
-    final title = auto
-        ? (node == null ? t.autoSelect : '${t.autoSelect} · ${node.plainName}')
-        : (node == null ? core.selected : node.plainName);
-    final flag = auto ? '⚡' : (node?.flag ?? '🌐');
-    final subtitle = auto ? t.autoSelectDesc : (node?.protocolLabel ?? '');
-
-    return Container(
-      decoration: BoxDecoration(
-        color: KColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: KColors.border),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.035), blurRadius: 16, offset: const Offset(0, 4))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        InkWell(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          onTap: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('nodes'),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 15, 14, 10),
-            child: Row(children: [
-              Text(flag, style: const TextStyle(fontSize: 22)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                  if (subtitle.isNotEmpty)
-                    Text(subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: KSize.small, color: KColors.faint)),
-                ]),
+      child: ListView(
+        padding: EdgeInsets.only(top: wide ? 32 : 16, bottom: 28),
+        children: [
+          KPage(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (s.notices.isNotEmpty) _NoticeBar(notice: s.notices.first),
+              if (s.subscriptionUnavailable) ...[
+                const SizedBox(height: 12),
+                _WarnCard(
+                  text: t.subUnavailable,
+                  action: Platform.isIOS ? null : t.renewNow,
+                  onAction: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('store'),
+                ),
+              ],
+              SizedBox(height: wide ? 28 : 20),
+              Center(child: PowerButton(status: core.status, onTap: _toggle, size: wide ? 150 : 140)),
+              const SizedBox(height: 14),
+              Center(
+                child: Text(statusText,
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
               ),
-              Text(t.switchNode, style: const TextStyle(fontSize: KSize.small, color: KColors.faint)),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: KColors.faint),
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  core.running && core.connectedAt != null
+                      ? fmtDuration(DateTime.now().difference(core.connectedAt!))
+                      : t.tapToConnect,
+                  style: const TextStyle(color: KColors.sub, letterSpacing: 1.5, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 22),
+              _SpeedRow(core: core),
+              const SizedBox(height: 22),
+              _NodeCard(
+                node: node == null
+                    ? (core.selected == 'auto' ? t.autoSelect : core.selected)
+                    : '${node.flag}  ${node.plainName}',
+                sub: core.selected == 'auto' ? t.autoSelectDesc : node?.protocolLabel ?? '',
+                onTap: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('nodes'),
+              ),
+              const SizedBox(height: 16),
+              // 修复：以前这里用 Flex + stretch 放在滚动列表里，宽窗口时报错导致整页空白
+              if (wide && desktop)
+                IntrinsicHeight(
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Expanded(child: _TunCard(core: core)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _ModeCard(core: core)),
+                  ]),
+                )
+              else ...[
+                if (desktop) ...[_TunCard(core: core), const SizedBox(height: 16)],
+                _ModeCard(core: core),
+              ],
+              const SizedBox(height: 22),
+              const _NetworkPanel(),
+              const SizedBox(height: 22),
+              _Footer(session: s),
             ]),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
-          child: Row(children: [
-            Expanded(
-              child: Wrap(spacing: 6, runSpacing: 6, children: [
-                _ModeChip(core: core),
-                if (showTun)
-                  _ToggleChip(
-                    icon: Icons.lan_outlined,
-                    label: t.tunMode,
-                    tooltip: t.tunModeDesc,
-                    value: core.storage.tunMode,
-                    onChanged: core.busy ? null : (v) => core.setTunMode(v),
-                  ),
-              ]),
-            ),
-            const SizedBox(width: 8),
-            if (showButton) _SendButton(core: core),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-/// 出站规则下拉（智能分流 / 全局 / 直连）
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.core});
-  final CoreService core;
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    String label(RouteMode m) => switch (m) {
-          RouteMode.rule => t.modeRule,
-          RouteMode.global => t.modeGlobal,
-          RouteMode.direct => t.modeDirect,
-        };
-    final mode = core.storage.routeMode;
-    return PopupMenuButton<RouteMode>(
-      tooltip: t.routeModeDesc,
-      position: PopupMenuPosition.under,
-      onSelected: core.setRouteMode,
-      itemBuilder: (_) => [
-        for (final m in RouteMode.values)
-          PopupMenuItem(
-            value: m,
-            height: 36,
-            child: Row(children: [
-              SizedBox(
-                width: 22,
-                child: m == mode ? const Icon(Icons.check_rounded, size: 15, color: KColors.ink) : null,
-              ),
-              Text(label(m), style: const TextStyle(fontSize: KSize.body)),
-            ]),
-          ),
-      ],
-      child: _ChipBody(icon: Icons.alt_route_rounded, label: label(mode), trailing: Icons.expand_more_rounded),
-    );
-  }
-}
-
-class _ToggleChip extends StatelessWidget {
-  const _ToggleChip({required this.icon, required this.label, required this.tooltip, required this.value, required this.onChanged});
-  final IconData icon;
-  final String label, tooltip;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-  @override
-  Widget build(BuildContext context) => Tooltip(
-        message: tooltip,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onChanged == null ? null : () => onChanged!(!value),
-          child: _ChipBody(icon: value ? Icons.check_rounded : icon, label: label, active: value),
-        ),
-      );
-}
-
-class _ChipBody extends StatelessWidget {
-  const _ChipBody({required this.icon, required this.label, this.trailing, this.active = false});
-  final IconData icon;
-  final String label;
-  final IconData? trailing;
-  final bool active;
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: active ? KColors.accentSoft : KColors.field,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? KColors.accent.withValues(alpha: 0.3) : KColors.border),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 14, color: active ? KColors.accent : KColors.sub),
-          const SizedBox(width: 6),
-          Text(label,
-              style: TextStyle(fontSize: KSize.small + 0.5, color: active ? KColors.accent : KColors.ink)),
-          if (trailing != null) ...[
-            const SizedBox(width: 2),
-            Icon(trailing, size: 15, color: KColors.faint),
-          ],
-        ]),
-      );
-}
-
-/// 右下角圆形连接按钮（对应 Codex 输入框的"发送"按钮）
-class _SendButton extends StatelessWidget {
-  const _SendButton({required this.core});
-  final CoreService core;
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final on = core.running;
-    final busy = core.busy;
-    return Tooltip(
-      message: on ? t.disconnectNow : t.connectNow,
-      child: Material(
-        color: on ? KColors.accent : KColors.ink,
-        shape: const StadiumBorder(),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: busy ? null : () => connectToggle(context),
-          child: SizedBox(
-            height: 36,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                busy
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.8, color: Colors.white))
-                    : const Icon(Icons.power_settings_new_rounded, size: 16, color: Colors.white),
-                const SizedBox(width: 7),
-                Text(on ? t.disconnectNow : t.connectNow,
-                    style: const TextStyle(color: Colors.white, fontSize: KSize.body, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          ),
-        ),
+        ],
       ),
     );
-  }
-}
-
-/// 卡片下方的淡色信息行：速度 / 剩余流量 / 到期
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.core, required this.session});
-  final CoreService core;
-  final Session session;
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final exp = session.expireAt;
-    final days = exp == 0
-        ? null
-        : (DateTime.fromMillisecondsSinceEpoch(exp * 1000).difference(DateTime.now()).inHours / 24).ceil();
-    Widget item(IconData i, String v) => Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(i, size: 13, color: KColors.faint),
-          const SizedBox(width: 4),
-          Text(v,
-              style: const TextStyle(
-                  fontSize: KSize.small, color: KColors.sub, fontFeatures: [FontFeature.tabularFigures()])),
-        ]);
-    return Wrap(alignment: WrapAlignment.center, spacing: 18, runSpacing: 6, children: [
-      item(Icons.south_rounded, fmtSpeed(core.downSpeed)),
-      item(Icons.north_rounded, fmtSpeed(core.upSpeed)),
-      if (session.totalBytes > 0)
-        item(Icons.data_usage_rounded, t.trafficLeft(fmtBytes(session.totalBytes - session.usedBytes))),
-      if (session.mode == AccountMode.xboard || exp > 0)
-        item(Icons.schedule_rounded, days == null ? t.longTerm : t.daysLeft(days < 0 ? 0 : days)),
-    ]);
   }
 }
 
@@ -346,65 +184,228 @@ class _NoticeBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = (notice['title'] ?? '').toString();
     final content = stripHtml((notice['content'] ?? '').toString());
-    return Material(
-      color: KColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: KColors.border),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => showDialog(
-          context: context,
-          builder: (c) => AlertDialog(
-            title: Text(title),
-            content: SingleChildScrollView(child: SelectableText(content)),
-            actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(context.t.ok))],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          child: Row(children: [
-            const Icon(Icons.campaign_outlined, size: 16, color: KColors.accent),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: KSize.body)),
-            ),
-            const Icon(Icons.chevron_right_rounded, size: 18, color: KColors.faint),
-          ]),
+    return KCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      onTap: () => showDialog(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(child: SelectableText(content)),
+          actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(context.t.ok))],
         ),
       ),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(color: KColors.ink, borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w500)),
+        ),
+        const Icon(Icons.chevron_right_rounded, color: KColors.faint),
+      ]),
     );
   }
 }
 
-class _WarnBar extends StatelessWidget {
-  const _WarnBar({required this.text, this.action, this.onAction});
+class _WarnCard extends StatelessWidget {
+  const _WarnCard({required this.text, this.action, this.onAction});
   final String text;
   final String? action;
   final VoidCallback? onAction;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: KColors.warnSoft,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: KColors.warn.withValues(alpha: 0.25)),
+          color: const Color(0xFFFFF3E6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF4D7B5)),
         ),
         child: Row(children: [
-          const Icon(Icons.warning_amber_rounded, size: 16, color: KColors.warn),
-          const SizedBox(width: 9),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: KSize.small + 0.5))),
+          const Icon(Icons.warning_amber_rounded, color: KColors.warn),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
           if (action != null)
             TextButton(
               onPressed: onAction,
-              child: Text(action!, style: const TextStyle(color: KColors.warn, fontWeight: FontWeight.w600)),
+              child: Text(action!, style: const TextStyle(color: KColors.warn, fontWeight: FontWeight.w700)),
             ),
         ]),
       );
 }
 
+class _SpeedRow extends StatelessWidget {
+  const _SpeedRow({required this.core});
+  final CoreService core;
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    Widget item(IconData i, String label, String v, String total) => Expanded(
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(i, color: KColors.sub, size: 22),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: const TextStyle(color: KColors.sub, fontSize: 12)),
+              Text(v, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              Text(total, style: const TextStyle(color: KColors.faint, fontSize: 11)),
+            ]),
+          ]),
+        );
+    return Row(children: [
+      item(Icons.south_rounded, t.download, fmtSpeed(core.downSpeed), fmtBytes(core.downTotal)),
+      item(Icons.north_rounded, t.upload, fmtSpeed(core.upSpeed), fmtBytes(core.upTotal)),
+    ]);
+  }
+}
+
+class _NodeCard extends StatelessWidget {
+  const _NodeCard({required this.node, required this.sub, required this.onTap});
+  final String node, sub;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => KCard(
+        onTap: onTap,
+        child: Row(children: [
+          const IconBox(Icons.public_rounded),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(context.t.currentNode, style: const TextStyle(color: KColors.sub, fontSize: 12)),
+              const SizedBox(height: 4),
+              Text(node, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              if (sub.isNotEmpty)
+                Text(sub, style: const TextStyle(color: KColors.faint, fontSize: 12)),
+            ]),
+          ),
+          Text(context.t.switchNode, style: const TextStyle(color: KColors.faint)),
+          const Icon(Icons.chevron_right_rounded, color: KColors.faint),
+        ]),
+      );
+}
+
+class _TunCard extends StatelessWidget {
+  const _TunCard({required this.core});
+  final CoreService core;
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return KCard(
+      child: Row(children: [
+        const IconBox(Icons.desktop_windows_outlined),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(t.tunMode, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            const SizedBox(height: 2),
+            Text(t.tunModeDesc, style: const TextStyle(color: KColors.sub, fontSize: 12)),
+          ]),
+        ),
+        Switch(
+          value: core.storage.tunMode,
+          onChanged: core.busy ? null : (v) => core.setTunMode(v),
+        ),
+      ]),
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({required this.core});
+  final CoreService core;
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final mode = core.storage.routeMode;
+    return KCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const IconBox(Icons.alt_route_rounded),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t.routeMode, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(t.routeModeDesc, style: const TextStyle(color: KColors.sub, fontSize: 12)),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: KColors.field, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            for (final m in RouteMode.values)
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => core.setRouteMode(m),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: mode == m ? KColors.surface : Colors.transparent,
+                      borderRadius: BorderRadius.circular(11),
+                      boxShadow: mode == m
+                          ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6)]
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      switch (m) {
+                        RouteMode.rule => t.modeRule,
+                        RouteMode.global => t.modeGlobal,
+                        RouteMode.direct => t.modeDirect,
+                      },
+                      style: TextStyle(
+                        fontWeight: mode == m ? FontWeight.w700 : FontWeight.w500,
+                        color: mode == m ? KColors.ink : KColors.sub,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _Footer extends StatelessWidget {
+  const _Footer({required this.session});
+  final Session session;
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final exp = session.expireAt;
+    final days = exp == 0
+        ? null
+        : (DateTime.fromMillisecondsSinceEpoch(exp * 1000).difference(DateTime.now()).inHours / 24).ceil();
+    final remain = session.totalBytes - session.usedBytes;
+    final style = const TextStyle(color: KColors.sub, fontSize: 13);
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 22,
+      runSpacing: 8,
+      children: [
+        if (session.mode == AccountMode.xboard || exp > 0)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.schedule_rounded, size: 16, color: KColors.sub),
+            const SizedBox(width: 6),
+            Text(days == null ? t.longTerm : t.daysLeft(days < 0 ? 0 : days), style: style),
+          ]),
+        if (session.totalBytes > 0)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.bolt_rounded, size: 16, color: KColors.sub),
+            const SizedBox(width: 6),
+            Text(t.trafficLeft(fmtBytes(remain)), style: style),
+          ]),
+      ],
+    );
+  }
+}
 /// 网络信息：本机 IP 和代理出口 IP 并排（窄屏上下排列）
 class _NetworkPanel extends StatelessWidget {
   const _NetworkPanel();

@@ -13,7 +13,6 @@ import 'package:koyun_vpn/services/session.dart';
 import 'package:koyun_vpn/services/storage.dart';
 import 'package:koyun_vpn/ui/pages/home_shell.dart';
 import 'package:koyun_vpn/ui/theme.dart';
-import 'package:koyun_vpn/ui/widgets/window_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -71,7 +70,6 @@ Widget _app(Session s, CoreService c) => MultiProvider(
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        builder: (context, child) => Column(children: [const WindowBar(), Expanded(child: child!)]),
         home: const HomeShell(),
       ),
     );
@@ -93,7 +91,6 @@ Future<void> _loadFonts() async {
 }
 
 void main() {
-  forceCustomTitleBar = true;
   setUpAll(_loadFonts);
   for (final page in ['home', 'nodes', 'profile']) {
     testWidgets('截图 $page', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {

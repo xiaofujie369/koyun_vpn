@@ -56,14 +56,12 @@ Future<void> main(List<String> args) async {
     await windowManager.ensureInitialized();
     await windowManager.waitUntilReadyToShow(
       WindowOptions(
-        // 默认窗口大小参考 Codex 桌面端，适中不占满屏幕
+        // 默认窗口大小和 Codex 桌面端一样，适中不占满屏幕
         size: const Size(900, 600),
         minimumSize: const Size(760, 500),
         center: true,
         title: AppConfig.appName,
         backgroundColor: const Color(0xFFFAF8F4),
-        // Windows 隐藏系统标题栏，改用 App 自己画的（保留窗口边框和拖动缩放）
-        titleBarStyle: Platform.isWindows ? TitleBarStyle.hidden : TitleBarStyle.normal,
       ),
       () async {
         await windowManager.show();

@@ -14,6 +14,7 @@ import '../services/storage.dart';
 import 'clash_api.dart';
 import 'config_builder.dart';
 import 'core_backend.dart';
+import 'desktop_backend.dart';
 import 'mobile_backend.dart';
 
 /// 连接控制：生成配置 → 启动内核 → 通过 Clash API 切节点 / 测速 / 读网速。
@@ -145,6 +146,7 @@ class CoreService extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    _stopTester();
     final wasRunning = running;
     final t0 = DateTime.now();
     status = CoreStatus.starting;
@@ -268,6 +270,7 @@ class CoreService extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    _stopTester();
     if (running && connectedAt != null) {
       Reporter.instance.event('disconnect', {
         ..._connInfo(),
@@ -322,28 +325,87 @@ class CoreService extends ChangeNotifier {
 
   /// 测速：已连接时测真实延迟（经代理访问测速地址）；
   /// 未连接时测 TCP 握手延迟（UDP 协议节点无法测，显示"-"）。
+  Process? _tester; // 未连接时临时启动的测速内核
+
+  /// 测速。
+  /// * 已连接：通过内核测真实延迟（所有协议都支持）。
+  /// * 未连接（电脑端）：临时在后台启动一个只用来测速的内核，测完立即关闭。
+  ///   这样 Hysteria2 / TUIC 这类基于 UDP 的协议也能测出延迟（以前只能 TCP 测，UDP 协议显示"-"）。
+  /// * 未连接（手机端）或临时内核启动失败：退回 TCP 连接测速。
   Future<void> testAll() async {
     if (testing) return;
     testing = true;
     notifyListeners();
     final list = [...session.nodes];
-    final api = _api;
-    const parallel = 8;
-    for (var i = 0; i < list.length; i += parallel) {
-      final batch = list.skip(i).take(parallel);
-      await Future.wait(batch.map((n) async {
-        int d;
-        if (running && api != null) {
-          d = await api.delay(n.tag, AppConfig.delayTestUrl);
-        } else {
-          d = await _tcpPing(n);
-        }
-        delays[n.tag] = d;
-        notifyListeners();
-      }));
+    ClashApi? api = running ? _api : null;
+    var temp = false;
+    if (api == null && !isMobile && backend is DesktopBackend) {
+      api = await _startTester(list);
+      temp = api != null;
     }
-    testing = false;
-    notifyListeners();
+    const parallel = 8;
+    try {
+      for (var i = 0; i < list.length; i += parallel) {
+        final batch = list.skip(i).take(parallel);
+        await Future.wait(batch.map((n) async {
+          final a = api;
+          final d = a != null ? await a.delay(n.tag, AppConfig.delayTestUrl) : await _tcpPing(n);
+          delays[n.tag] = d;
+          notifyListeners();
+        }));
+        if (temp && _tester == null) break; // 测速中途用户点了连接
+      }
+    } finally {
+      if (temp) {
+        api?.close();
+        _stopTester();
+      }
+      testing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<ClashApi?> _startTester(List<ProxyNode> nodes) async {
+    try {
+      final port = await _freePort(19190);
+      final secret = _randomHex(16);
+      final cfg = ConfigBuilder.build(CoreOptions(
+        nodes: nodes,
+        selected: 'auto',
+        ruleSetDir: _ruleDir,
+        workDir: _workDir,
+        clashPort: port,
+        clashSecret: secret,
+        routeMode: RouteMode.global,
+        ipv6: storage.ipv6,
+        logLevel: 'error',
+      ));
+      // 不和正式内核抢缓存文件
+      (cfg['experimental'] as Map)['cache_file'] = {'enabled': false};
+      final path = '$_workDir/test_config.json';
+      await File(path).writeAsString(jsonEncode(cfg));
+      final bin = (backend as DesktopBackend).binaryPath;
+      if (!File(bin).existsSync()) return null;
+      _tester = await Process.start(bin, ['run', '-c', path, '-D', _workDir], workingDirectory: _workDir);
+      _tester!.stdout.drain<void>();
+      _tester!.stderr.drain<void>();
+      final api = ClashApi(port, secret);
+      for (var i = 0; i < 40; i++) {
+        if (_tester == null) return null;
+        if (await api.ping()) return api;
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+      api.close();
+      _stopTester();
+    } catch (_) {
+      _stopTester();
+    }
+    return null;
+  }
+
+  void _stopTester() {
+    _tester?.kill();
+    _tester = null;
   }
 
   static Future<int> _tcpPing(ProxyNode n) async {
@@ -375,6 +437,7 @@ class CoreService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _stopTester();
     session.removeListener(_onSessionChanged);
     super.dispose();
   }

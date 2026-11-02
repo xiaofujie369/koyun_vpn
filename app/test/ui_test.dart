@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,7 +15,6 @@ import 'package:koyun_vpn/ui/pages/home_shell.dart';
 import 'package:koyun_vpn/services/updater.dart';
 import 'package:koyun_vpn/ui/theme.dart';
 import 'package:koyun_vpn/ui/widgets/update_dialog.dart';
-import 'package:koyun_vpn/ui/widgets/window_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -72,13 +72,11 @@ Widget _app(Session s, CoreService c) => MultiProvider(
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        builder: (context, child) => Column(children: [const WindowBar(), Expanded(child: child!)]),
         home: const HomeShell(),
       ),
     );
 
 void main() {
-  forceCustomTitleBar = true;
 
   test('IP 显示', () {
     final i = IpInfo.fromJson({'ip': '203.0.113.45', 'countryCode': 'tw', 'country': 'Taiwan'});
@@ -103,6 +101,13 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final (s, c) = await _services();
+      // 出错时打印完整信息（哪个文件哪一行的控件溢出）
+      final prev = FlutterError.onError;
+      FlutterError.onError = (d) {
+        debugPrint(d.toString());
+        prev?.call(d);
+      };
+      addTearDown(() => FlutterError.onError = prev);
       await tester.pumpWidget(_app(s, c));
       await tester.pump(const Duration(milliseconds: 500));
 
@@ -110,7 +115,8 @@ void main() {
       for (final key in ['home', 'nodes', 'profile']) {
         shell.goTo(key);
         await tester.pump(const Duration(milliseconds: 500));
-        expect(tester.takeException(), isNull, reason: '页面 $key 出现布局错误');
+        final e = tester.takeException();
+        expect(e, isNull, reason: '页面 $key 出现布局错误：${e is FlutterError ? e.toStringDeep() : e}');
       }
       // 更新对话框
       Updater.instance.available = UpdateInfo(version: '9.9.9', notes: '修复若干问题\n界面优化', pageUrl: 'https://example.com');

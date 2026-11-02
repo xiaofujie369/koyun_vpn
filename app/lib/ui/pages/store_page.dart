@@ -69,24 +69,39 @@ class _StorePageState extends State<StorePage> {
           _ => true,
         }).toList();
     return RefreshIndicator(
-      color: KColors.accent,
+      color: KColors.lavender,
       onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.only(top: 22, bottom: 28), children: [
+      child: ListView(padding: EdgeInsets.only(top: wide ? 32 : 12, bottom: 28), children: [
         KPage(
           maxWidth: 980,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            PageHeader(title: t.navStore, subtitle: t.storeSubtitle),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: 320,
-                child: KSegmented<int>(
-                  items: [(0, t.filterAll), (1, t.filterPeriodic), (2, t.filterOnetime)],
-                  value: _filter,
-                  onChanged: (v) => setState(() => _filter = v),
-                ),
-              ),
+            Text(t.navStore, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(t.storeSubtitle, style: const TextStyle(color: KColors.sub)),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: KColors.field, borderRadius: BorderRadius.circular(14)),
+              child: Row(children: [
+                for (final (i, l) in [(0, t.filterAll), (1, t.filterPeriodic), (2, t.filterOnetime)])
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _filter = i),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _filter == i ? KColors.ink : Colors.transparent,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Text(l,
+                            style: TextStyle(
+                                color: _filter == i ? Colors.white : KColors.sub,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ),
+              ]),
             ),
             const SizedBox(height: 20),
             if (_error != null)
