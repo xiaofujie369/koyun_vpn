@@ -121,7 +121,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 _WarnCard(
                   text: t.subUnavailable,
                   action: Platform.isIOS ? null : t.renewNow,
-                  onAction: () => context.findAncestorStateOfType<HomeShellState>()?.go(2),
+                  onAction: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('store'),
                 ),
               ],
               SizedBox(height: wide ? 28 : 20),
@@ -148,7 +148,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ? (core.selected == 'auto' ? t.autoSelect : core.selected)
                     : '${node.flag}  ${node.plainName}',
                 sub: core.selected == 'auto' ? t.autoSelectDesc : node?.protocolLabel ?? '',
-                onTap: () => context.findAncestorStateOfType<HomeShellState>()?.go(1),
+                onTap: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('nodes'),
               ),
               const SizedBox(height: 16),
               Flex(

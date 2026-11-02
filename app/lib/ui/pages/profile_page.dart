@@ -288,7 +288,7 @@ class _TrafficCard extends StatelessWidget {
               if (Platform.isIOS) {
                 openUrl(context, AppConfig.websiteUrl);
               } else {
-                context.findAncestorStateOfType<HomeShellState>()?.go(2);
+                context.findAncestorStateOfType<HomeShellState>()?.goTo('store');
               }
             },
             icon: const Icon(Icons.autorenew_rounded),

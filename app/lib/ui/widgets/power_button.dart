@@ -1,11 +1,14 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../core/core_backend.dart';
 import '../theme.dart';
 
-/// 中间的大电源按钮：未连接=奶白色；连接中=旋转渐变环；已连接=紫粉渐变发光
+/// 连接按钮：细圆环 + 中心电源图标。
+/// 未连接=灰环；连接中=紫色弧线旋转；已连接=紫色实心 + 柔和光晕。
 class PowerButton extends StatefulWidget {
-  const PowerButton({super.key, required this.status, required this.onTap, this.size = 150});
+  const PowerButton({super.key, required this.status, required this.onTap, this.size = 112});
   final CoreStatus status;
   final VoidCallback onTap;
   final double size;
@@ -15,13 +18,10 @@ class PowerButton extends StatefulWidget {
 }
 
 class _PowerButtonState extends State<PowerButton> with SingleTickerProviderStateMixin {
-  late final _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+  late final _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+  bool _hover = false;
 
-  @override
-  void didUpdateWidget(covariant PowerButton old) {
-    super.didUpdateWidget(old);
-    _sync();
-  }
+  bool get _busy => widget.status == CoreStatus.starting || widget.status == CoreStatus.stopping;
 
   @override
   void initState() {
@@ -29,13 +29,15 @@ class _PowerButtonState extends State<PowerButton> with SingleTickerProviderStat
     _sync();
   }
 
+  @override
+  void didUpdateWidget(covariant PowerButton old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
   void _sync() {
-    final busy = widget.status == CoreStatus.starting || widget.status == CoreStatus.stopping;
-    if (busy && !_spin.isAnimating) {
-      _spin.repeat();
-    } else if (!busy && _spin.isAnimating) {
-      _spin.stop();
-    }
+    if (_busy && !_spin.isAnimating) _spin.repeat();
+    if (!_busy && _spin.isAnimating) _spin.stop();
   }
 
   @override
@@ -48,68 +50,63 @@ class _PowerButtonState extends State<PowerButton> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final s = widget.size;
     final on = widget.status == CoreStatus.running;
-    final busy = widget.status == CoreStatus.starting || widget.status == CoreStatus.stopping;
-    return GestureDetector(
-      onTap: busy ? null : widget.onTap,
-      child: MouseRegion(
-        cursor: busy ? SystemMouseCursors.basic : SystemMouseCursors.click,
-        child: SizedBox(
-          width: s + 40,
-          height: s + 40,
-          child: Stack(alignment: Alignment.center, children: [
-            // 外圈光晕
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 500),
-              width: s + 36,
-              height: s + 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: on
-                        ? KColors.lavender.withValues(alpha: 0.45)
-                        : Colors.black.withValues(alpha: 0.06),
-                    blurRadius: on ? 46 : 26,
-                    spreadRadius: on ? 4 : 0,
-                  ),
-                ],
-              ),
-            ),
-            if (busy)
-              RotationTransition(
-                turns: _spin,
-                child: Container(
-                  width: s + 14,
-                  height: s + 14,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: SweepGradient(colors: [
-                      Color(0x00EBA9BC),
-                      KColors.sakura,
-                      KColors.lavender,
-                    ]),
-                  ),
+    return MouseRegion(
+      cursor: _busy ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: _busy ? null : widget.onTap,
+        child: AnimatedScale(
+          scale: _hover && !_busy ? 1.03 : 1,
+          duration: const Duration(milliseconds: 160),
+          child: SizedBox(
+            width: s,
+            height: s,
+            child: Stack(alignment: Alignment.center, children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                width: s,
+                height: s,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: on ? KColors.accent : KColors.surface,
+                  border: Border.all(color: on ? KColors.accent : KColors.border, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: on ? KColors.accent.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.04),
+                      blurRadius: on ? 32 : 10,
+                      offset: Offset(0, on ? 8 : 2),
+                    ),
+                  ],
                 ),
               ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 450),
-              width: s,
-              height: s,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: on ? null : KColors.surface,
-                gradient: on ? KColors.connectedGradient : null,
-                border: Border.all(color: on ? Colors.white54 : KColors.border, width: 2),
-              ),
-              child: Icon(
-                Icons.power_settings_new_rounded,
-                size: s * 0.42,
-                color: on ? Colors.white : (busy ? KColors.lavender : KColors.faint),
-              ),
-            ),
-          ]),
+              if (_busy)
+                RotationTransition(
+                  turns: _spin,
+                  child: CustomPaint(size: Size(s - 10, s - 10), painter: _ArcPainter()),
+                ),
+              Icon(Icons.power_settings_new_rounded,
+                  size: s * 0.36,
+                  color: on ? Colors.white : (_busy ? KColors.accent : KColors.sub)),
+            ]),
+          ),
         ),
       ),
     );
   }
+}
+
+class _ArcPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..color = KColors.accent;
+    canvas.drawArc(Offset.zero & size, -pi / 2, pi * 0.6, false, p);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
