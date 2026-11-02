@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/core_backend.dart';
 import '../../core/core_service.dart';
+import '../../services/ip_info.dart';
 import '../../services/session.dart';
 import '../../services/storage.dart';
 import '../theme.dart';
@@ -90,6 +91,8 @@ class _DashboardPageState extends State<DashboardPage> {
       _Composer(core: core, session: s, showButton: !narrow, showTun: !mobile),
       const SizedBox(height: 12),
       _InfoLine(core: core, session: s),
+      const SizedBox(height: 26),
+      const _NetworkPanel(),
     ]);
 
     return RefreshIndicator(
@@ -400,4 +403,209 @@ class _WarnBar extends StatelessWidget {
             ),
         ]),
       );
+}
+
+/// 网络信息：本机 IP 和代理出口 IP 并排（窄屏上下排列）
+class _NetworkPanel extends StatelessWidget {
+  const _NetworkPanel();
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final ip = context.watch<IpService>();
+    final core = context.watch<CoreService>();
+    final local = _IpCard(
+      icon: Icons.computer_rounded,
+      title: t.localNetwork,
+      info: ip.local,
+      loading: ip.loadingLocal,
+      failed: ip.localFailed,
+      onRefresh: ip.refreshLocal,
+    );
+    final proxy = _IpCard(
+      icon: Icons.shield_outlined,
+      title: t.proxyExit,
+      info: ip.proxy,
+      loading: ip.loadingProxy,
+      failed: ip.proxyFailed,
+      placeholder: core.running ? null : t.showAfterConnect,
+      highlight: core.running && ip.proxy != null,
+      onRefresh: ip.refreshProxy,
+    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 2, bottom: 8),
+        child: Row(children: [
+          Text(t.networkInfo,
+              style: const TextStyle(fontSize: KSize.small, color: KColors.faint, fontWeight: FontWeight.w500)),
+          const Spacer(),
+          Tooltip(
+            message: t.showIp,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: ip.toggleShowFull,
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: Icon(ip.showFull ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    size: 15, color: KColors.faint),
+              ),
+            ),
+          ),
+        ]),
+      ),
+      LayoutBuilder(
+        builder: (context, c) => c.maxWidth >= 500
+            ? IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(child: local),
+                  const SizedBox(width: 12),
+                  Expanded(child: proxy),
+                ]),
+              )
+            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [local, const SizedBox(height: 10), proxy]),
+      ),
+    ]);
+  }
+}
+
+class _IpCard extends StatelessWidget {
+  const _IpCard({
+    required this.icon,
+    required this.title,
+    required this.info,
+    required this.loading,
+    required this.failed,
+    required this.onRefresh,
+    this.placeholder,
+    this.highlight = false,
+  });
+  final IconData icon;
+  final String title;
+  final IpInfo? info;
+  final bool loading, failed, highlight;
+  final String? placeholder;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final ip = context.read<IpService>();
+    final locale = Localizations.localeOf(context);
+    final i = info;
+
+    Widget body;
+    if (placeholder != null) {
+      body = Text(placeholder!, style: const TextStyle(fontSize: KSize.small + 0.5, color: KColors.faint));
+    } else if (loading && i == null) {
+      body = const Align(alignment: Alignment.centerLeft, child: BtnSpinner(color: KColors.faint));
+    } else if (i == null) {
+      body = InkWell(
+        onTap: onRefresh,
+        child: Text(failed ? t.ipFetchFailed : '—',
+            style: const TextStyle(fontSize: KSize.small + 0.5, color: KColors.faint)),
+      );
+    } else {
+      final place = [
+        countryName(i, locale.languageCode, hant: locale.scriptCode == 'Hant'),
+        if (i.city.isNotEmpty) i.city,
+      ].join(' · ');
+      final score = i.fraudScore;
+      final (riskText, riskColor, riskBg) = score == null
+          ? ('', KColors.sub, KColors.field)
+          : score <= 30
+              ? (t.riskLow, KColors.ok, KColors.okSoft)
+              : score <= 70
+                  ? (t.riskMid, KColors.warn, KColors.warnSoft)
+                  : (t.riskHigh, KColors.danger, const Color(0xFFFBE7E5));
+      body = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          if (i.countryCode.isNotEmpty) ...[_Flag(i.countryCode), const SizedBox(width: 8)],
+          Flexible(
+            child: SelectableText(ip.showFull ? i.ip : i.masked,
+                maxLines: 1,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600, fontFeatures: [FontFeature.tabularFigures()])),
+          ),
+        ]),
+        const SizedBox(height: 3),
+        Text(place,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: KSize.small + 0.5, color: KColors.sub)),
+        const SizedBox(height: 9),
+        Wrap(spacing: 5, runSpacing: 5, children: [
+          if (i.residential != null)
+            i.residential!
+                ? KTag(t.residentialIp, color: KColors.ok, bg: KColors.okSoft)
+                : KTag(t.datacenterIp),
+          if (i.broadcast != null)
+            i.broadcast!
+                ? KTag(t.broadcastIp, color: KColors.warn, bg: KColors.warnSoft)
+                : KTag(t.nativeIp, color: KColors.ok, bg: KColors.okSoft),
+          if (score != null) KTag('${t.riskScore(score)} · $riskText', color: riskColor, bg: riskBg),
+        ]),
+        if (i.org.isNotEmpty || i.asn > 0) ...[
+          const SizedBox(height: 7),
+          Text([if (i.asn > 0) 'AS${i.asn}', if (i.org.isNotEmpty) i.org].join(' · '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: KColors.faint)),
+        ],
+      ]);
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 11, 8, 13),
+      decoration: BoxDecoration(
+        color: KColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: highlight ? KColors.accent.withValues(alpha: 0.35) : KColors.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(icon, size: 14, color: highlight ? KColors.accent : KColors.faint),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(title,
+                style: TextStyle(
+                    fontSize: KSize.small,
+                    color: highlight ? KColors.accent : KColors.sub,
+                    fontWeight: FontWeight.w500)),
+          ),
+          if (placeholder == null)
+            Tooltip(
+              message: t.refresh,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: loading ? null : onRefresh,
+                child: SizedBox(
+                  width: 24,
+                  height: 22,
+                  child: Center(
+                    child: loading && i != null
+                        ? const SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5))
+                        : const Icon(Icons.refresh_rounded, size: 14, color: KColors.faint),
+                  ),
+                ),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 9),
+        body,
+      ]),
+    );
+  }
+}
+
+/// 国旗：Windows 系统字体不支持国旗表情，改为显示国家代码小标签
+class _Flag extends StatelessWidget {
+  const _Flag(this.code);
+  final String code;
+  @override
+  Widget build(BuildContext context) {
+    if (Platform.isWindows || code.length != 2) {
+      return KTag(code, color: KColors.ink);
+    }
+    final flag = String.fromCharCodes(code.codeUnits.map((c) => 0x1F1E6 + c - 0x41));
+    return Text(flag, style: const TextStyle(fontSize: 17));
+  }
 }

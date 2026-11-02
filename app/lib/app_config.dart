@@ -29,6 +29,16 @@ class AppConfig {
   /// 注册失败时引导客户打开的网页注册地址。
   static final String webRegisterUrl = _decode(_webEnc);
 
+  /// 数据管理后台（统计 / 反馈 / 远程配置）地址和密钥，同样编译时注入：
+  ///   KOYUN_STATS      = 后台地址，例如 https://admin.example.com（不填 = 关闭上报，App 不会发送任何统计）
+  ///   KOYUN_STATS_KEY  = 客户端密钥（后台用来识别是自家 App 发来的请求）
+  /// 接口说明见 docs/后台接口说明.md
+  static const _statsEnc = String.fromEnvironment('KOYUN_STATS');
+  static const _statsKeyEnc = String.fromEnvironment('KOYUN_STATS_KEY');
+  static final String statsBase = _decode(_statsEnc).replaceAll(RegExp(r'/+$'), '');
+  static final String statsKey = _decode(_statsKeyEnc);
+  static bool get statsEnabled => statsBase.startsWith('https://');
+
   /// 官网 / 网页版（用户中心里"官方网站"）。
   static String get websiteUrl => webRegisterUrl;
 

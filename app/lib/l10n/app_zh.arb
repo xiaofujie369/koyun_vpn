@@ -150,6 +150,28 @@
  "maximize": "最大化",
  "close": "关闭",
  "statusIdleHint": "选择节点后点击右下角按钮连接",
+ "networkInfo": "网络信息",
+ "localNetwork": "本机网络",
+ "proxyExit": "代理出口",
+ "showAfterConnect": "连接后显示",
+ "ipFetchFailed": "获取失败，点击重试",
+ "residentialIp": "住宅",
+ "datacenterIp": "机房",
+ "nativeIp": "原生",
+ "broadcastIp": "广播",
+ "riskLow": "低风险",
+ "riskMid": "中风险",
+ "riskHigh": "高风险",
+ "showIp": "显示 / 隐藏完整 IP",
+ "refresh": "刷新",
+ "feedback": "反馈问题",
+ "feedbackHint": "请描述遇到的问题，例如：哪个节点、什么时候、出现了什么提示",
+ "contactOptional": "联系方式（选填）",
+ "attachLogs": "附带运行日志（帮助排查问题）",
+ "send": "发送",
+ "feedbackSent": "已收到您的反馈，感谢！",
+ "feedbackFailed": "发送失败，请稍后重试或提交工单",
+ "feedbackEmpty": "请先填写问题描述",
  "logout": "退出登录",
  "switchToAccount": "切换为账号登录",
  "logoutConfirm": "确定要退出吗？退出后将断开连接并清除本机保存的节点。",
@@ -234,6 +256,14 @@
   "placeholders": {
    "v": {
     "type": "String"
+   }
+  }
+ },
+ "riskScore": "风险值 {n}",
+ "@riskScore": {
+  "placeholders": {
+   "n": {
+    "type": "int"
    }
   }
  },

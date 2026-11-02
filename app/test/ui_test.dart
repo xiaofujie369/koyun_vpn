@@ -7,6 +7,7 @@ import 'package:koyun_vpn/api/xboard_api.dart';
 import 'package:koyun_vpn/core/core_service.dart';
 import 'package:koyun_vpn/l10n/gen/app_localizations.dart';
 import 'package:koyun_vpn/models/node.dart';
+import 'package:koyun_vpn/services/ip_info.dart';
 import 'package:koyun_vpn/services/session.dart';
 import 'package:koyun_vpn/services/storage.dart';
 import 'package:koyun_vpn/ui/pages/home_shell.dart';
@@ -44,10 +45,21 @@ Future<(Session, CoreService)> _services() async {
   return (session, CoreService(storage, session));
 }
 
+IpService _ip(CoreService c) => IpService(c)
+  ..local = IpInfo.fromJson({
+    'ip': '203.0.113.45', 'asn': 4134, 'asOrganization': 'Chinanet', 'country': 'China', 'countryCode': 'CN',
+    'city': 'Shanghai', 'fraudScore': 12, 'isResidential': true, 'isBroadcast': false,
+  })
+  ..proxy = IpInfo.fromJson({
+    'ip': '198.51.100.7', 'asn': 17511, 'asOrganization': 'OPTAGE Inc. Very Long Organization Name For Testing',
+    'country': 'Japan', 'countryCode': 'JP', 'city': 'Ōtsu', 'fraudScore': 75, 'isResidential': false, 'isBroadcast': true,
+  });
+
 Widget _app(Session s, CoreService c) => MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: s),
         ChangeNotifierProvider.value(value: c),
+        ChangeNotifierProvider.value(value: _ip(c)),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -67,6 +79,15 @@ Widget _app(Session s, CoreService c) => MultiProvider(
 
 void main() {
   forceCustomTitleBar = true;
+
+  test('IP 显示', () {
+    final i = IpInfo.fromJson({'ip': '203.0.113.45', 'countryCode': 'tw', 'country': 'Taiwan'});
+    expect(i.masked, '203.0.*.*');
+    expect(IpInfo(ip: '2001:db8:1:2::1').masked, '2001:db8:****');
+    expect(countryName(i, 'zh'), '台湾');
+    expect(countryName(i, 'zh', hant: true), '台灣');
+    expect(countryName(i, 'en'), 'Taiwan');
+  });
 
   test('版本号比较', () {
     expect(Updater.isNewer('1.0.2', '1.0.1'), isTrue);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,8 @@ import 'app_config.dart';
 import 'core/core_service.dart';
 import 'services/session.dart';
 import 'services/storage.dart';
+import 'services/ip_info.dart';
+import 'services/reporter.dart';
 import 'services/updater.dart';
 
 bool get isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
@@ -31,10 +34,23 @@ Future<void> main(List<String> args) async {
 
   final storage = Storage();
   await storage.init();
+  await Reporter.instance.init(storage);
+  Reporter.instance.event('app_start');
+  // 崩溃 / 未处理的错误：记录下来上报（后台开启时）
+  final prevOnError = FlutterError.onError;
+  FlutterError.onError = (d) {
+    Reporter.instance.event('crash', {'error': d.exceptionAsString(), 'stack': _short(d.stack)});
+    prevOnError?.call(d);
+  };
+  PlatformDispatcher.instance.onError = (e, st) {
+    Reporter.instance.event('crash', {'error': e.toString(), 'stack': _short(st)});
+    return false;
+  };
   localeNotifier.value = localeFromCode(storage.localeOverride);
   final api = XboardApi(storage);
   final session = Session(storage, api);
   final core = CoreService(storage, session);
+  final ip = IpService(core);
 
   if (isDesktop) {
     await windowManager.ensureInitialized();
@@ -61,12 +77,14 @@ Future<void> main(List<String> args) async {
     providers: [
       ChangeNotifierProvider.value(value: session),
       ChangeNotifierProvider.value(value: core),
+      ChangeNotifierProvider.value(value: ip),
     ],
     child: const KoyunApp(),
   ));
 
   await session.init();
   await core.init();
+  ip.start();
   if (isDesktop) {
     final shell = DesktopShell(core);
     await shell.install();
@@ -74,6 +92,12 @@ Future<void> main(List<String> args) async {
   }
   // 启动 5 秒后静默检查更新（有新版本时侧边栏显示提示，首页弹窗提醒一次）
   Future.delayed(const Duration(seconds: 5), Updater.instance.check);
+}
+
+String? _short(StackTrace? st) {
+  if (st == null) return null;
+  final s = st.toString();
+  return s.length > 4000 ? s.substring(0, 4000) : s;
 }
 
 ServerSocket? _instanceLock;

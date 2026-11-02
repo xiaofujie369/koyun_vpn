@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'app_config.dart';
 import 'l10n/gen/app_localizations.dart';
+import 'services/reporter.dart';
 import 'services/session.dart';
 import 'ui/pages/home_shell.dart';
 import 'ui/pages/login_page.dart';
@@ -74,6 +75,7 @@ class KoyunApp extends StatelessWidget {
         localeListResolutionCallback: (locales, supported) {
           final l = forced ?? resolveLocale(locales?.isNotEmpty == true ? locales!.first : null);
           context.read<Session>().api.language = apiLanguageTag(l);
+          Reporter.instance.locale = l.toLanguageTag();
           return l;
         },
         // Windows：自绘标题栏放在所有页面上方（登录页、主界面、弹出的页面都有）

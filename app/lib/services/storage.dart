@@ -27,6 +27,10 @@ class Storage {
     dataDir = dir;
   }
 
+  /// 匿名设备编号（统计用，随机生成，和账号无关）
+  String? get deviceId => _p.getString('device_id');
+  Future<void> setDeviceId(String v) => _p.setString('device_id', v);
+
   // ---- 账号 ----
   AccountMode get mode =>
       AccountMode.values.firstWhere((m) => m.name == _p.getString('mode'),

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_config.dart';
+import 'reporter.dart';
 
 class UpdateInfo {
   UpdateInfo({required this.version, required this.notes, required this.pageUrl, this.assetUrl});
@@ -39,6 +40,13 @@ class Updater extends ChangeNotifier {
     if (checking) return available != null;
     checking = true;
     notifyListeners();
+    // 1) 优先问自家后台（国内访问快）；没配置 / 失败再查 GitHub
+    final fromServer = await _checkServer();
+    if (fromServer != null) {
+      checking = false;
+      notifyListeners();
+      return fromServer;
+    }
     try {
       final res = await _dio.get<Map<String, dynamic>>(
         'https://api.github.com/repos/${AppConfig.updateRepo}/releases/latest',
@@ -79,6 +87,28 @@ class Updater extends ChangeNotifier {
       checking = false;
       notifyListeners();
     }
+  }
+
+  /// 后台 /api/v1/client/config 返回的 latest 字段：
+  /// {"version":"1.0.3","notes":"...","page":"https://...","downloads":{"windows":"...","android":"...","macos":"..."}}
+  Future<bool?> _checkServer() async {
+    final cfg = await Reporter.instance.remoteConfig();
+    final latest = cfg?['latest'];
+    if (latest is! Map) return null;
+    final v = (latest['version'] ?? '').toString();
+    if (v.isEmpty) return null;
+    if (!isNewer(v, AppConfig.appVersion)) {
+      available = null;
+      return false;
+    }
+    final dl = latest['downloads'] is Map ? latest['downloads'] as Map : const {};
+    available = UpdateInfo(
+      version: v,
+      notes: (latest['notes'] ?? '').toString(),
+      pageUrl: (latest['page'] ?? 'https://github.com/${AppConfig.updateRepo}/releases').toString(),
+      assetUrl: dl[Platform.operatingSystem] as String?,
+    );
+    return true;
   }
 
   static bool _matchesPlatform(String name) {

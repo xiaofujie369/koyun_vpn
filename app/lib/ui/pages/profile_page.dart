@@ -12,6 +12,7 @@ import '../../services/storage.dart';
 import '../../services/updater.dart';
 import '../theme.dart';
 import '../util.dart';
+import '../widgets/feedback_dialog.dart';
 import '../widgets/update_dialog.dart';
 import 'home_shell.dart';
 
@@ -126,6 +127,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
               },
             ),
+            KRow(icon: Icons.feedback_outlined, title: t.feedback, onTap: () => showFeedback(context)),
             KRow(icon: Icons.article_outlined, title: t.logs, onTap: () => _showLogs(context, core)),
           ]),
           gap,

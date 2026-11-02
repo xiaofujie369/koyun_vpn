@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../app_config.dart';
 import '../models/node.dart';
+import '../services/reporter.dart';
 import '../services/session.dart';
 import '../services/storage.dart';
 import 'clash_api.dart';
@@ -49,6 +50,7 @@ class CoreService extends ChangeNotifier {
   int upSpeed = 0, downSpeed = 0;
   int upTotal = 0, downTotal = 0;
   DateTime? connectedAt;
+  int? mixedPort; // 电脑端本地代理端口（查询代理出口 IP 用）
 
   ClashApi? _api;
   StreamSubscription? _trafficSub;
@@ -144,6 +146,7 @@ class CoreService extends ChangeNotifier {
       return;
     }
     final wasRunning = running;
+    final t0 = DateTime.now();
     status = CoreStatus.starting;
     lastError = null;
     needAdmin = false;
@@ -189,17 +192,24 @@ class CoreService extends ChangeNotifier {
         await backend.stop();
         throw CoreStartException(logs.isEmpty ? 'core not responding' : logs.last);
       }
+      this.mixedPort = isMobile ? null : mixedPort;
       status = CoreStatus.running;
       if (!wasRunning) connectedAt = DateTime.now();
+      Reporter.instance.event('connect_ok', {
+        ..._connInfo(),
+        'ms': DateTime.now().difference(t0).inMilliseconds,
+      });
       await storage.setWasConnected(true);
       _afterStart();
     } on CoreStartException catch (e) {
       needAdmin = e.needAdmin;
       lastError = e.message;
       _onStopped();
+      if (!e.needAdmin) Reporter.instance.event('connect_fail', {..._connInfo(), 'error': e.message});
     } catch (e) {
       lastError = e.toString();
       _onStopped();
+      Reporter.instance.event('connect_fail', {..._connInfo(), 'error': lastError});
     }
     notifyListeners();
   }
@@ -238,6 +248,7 @@ class CoreService extends ChangeNotifier {
 
   void _onStopped() {
     status = CoreStatus.stopped;
+    mixedPort = null;
     upSpeed = downSpeed = 0;
     connectedAt = null;
     _stopWatchers();
@@ -245,7 +256,26 @@ class CoreService extends ChangeNotifier {
     _api = null;
   }
 
+  /// 上报用的连接信息（节点名、协议、模式）
+  Map<String, dynamic> _connInfo() {
+    final n = currentNode;
+    return {
+      'node': selected == 'auto' ? 'auto${n == null ? '' : ':${n.tag}'}' : selected,
+      'protocol': n?.type,
+      'tun': isMobile || storage.tunMode,
+      'route': storage.routeMode.name,
+    };
+  }
+
   Future<void> disconnect() async {
+    if (running && connectedAt != null) {
+      Reporter.instance.event('disconnect', {
+        ..._connInfo(),
+        'duration_s': DateTime.now().difference(connectedAt!).inSeconds,
+        'up_bytes': upTotal,
+        'down_bytes': downTotal,
+      });
+    }
     status = CoreStatus.stopping;
     notifyListeners();
     await _stopWatchers();
