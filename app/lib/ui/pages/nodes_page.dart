@@ -182,7 +182,9 @@ class _NodesPageState extends State<NodesPage> {
                               multiplier: n.multiplier,
                               delay: core.delays[n.tag],
                               selected: core.selected == n.tag,
+                              testing: core.testingTags.contains(n.tag),
                               onTap: () => core.selectNode(n.tag),
+                              onRetest: core.testing ? null : () => core.testOne(n),
                             );
                           },
                         ),
@@ -222,13 +224,17 @@ class _NodeTile extends StatelessWidget {
     required this.onTap,
     this.multiplier,
     this.delay,
+    this.testing = false,
+    this.onRetest,
   });
   final String flag, name, sub;
   final String? code; // 地区代码，有则显示国旗图片
   final String? multiplier;
   final int? delay;
   final bool selected;
+  final bool testing; // 正在测这个节点
   final VoidCallback onTap;
+  final VoidCallback? onRetest; // 单独重测
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +278,12 @@ class _NodeTile extends StatelessWidget {
                   ]),
                 ]),
               ),
-              if (delay != null)
+              if (testing)
+                const Padding(
+                  padding: EdgeInsets.only(left: 6),
+                  child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6)),
+                )
+              else if (delay != null) ...[
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: Text(
@@ -280,6 +291,20 @@ class _NodeTile extends StatelessWidget {
                     style: TextStyle(color: delayColor(delay), fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ),
+                // 超时 / 测不出：显示单独重测按钮
+                if (delay! < 0 && onRetest != null)
+                  Tooltip(
+                    message: t.testLatency,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: onRetest,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.refresh_rounded, size: 15, color: KColors.sub),
+                      ),
+                    ),
+                  ),
+              ],
               if (selected) ...[
                 const SizedBox(width: 6),
                 const Icon(Icons.check_circle_rounded, size: 16, color: KColors.lavender),

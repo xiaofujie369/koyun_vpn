@@ -69,7 +69,7 @@ class Session extends ChangeNotifier {
       // 第二次及以后打开：自动刷新订阅（不阻塞界面）
       unawaited(refresh());
     }
-    _timer = Timer.periodic(const Duration(minutes: 30), (_) {
+    _timer = Timer.periodic(const Duration(minutes: 10), (_) {
       final last = lastRefreshAt;
       if (loggedIn &&
           (last == null || DateTime.now().difference(last) > AppConfig.autoRefreshInterval)) {

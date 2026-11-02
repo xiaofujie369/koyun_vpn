@@ -332,11 +332,19 @@ class CoreService extends ChangeNotifier {
   /// * 未连接（电脑端）：临时在后台启动一个只用来测速的内核，测完立即关闭。
   ///   这样 Hysteria2 / TUIC 这类基于 UDP 的协议也能测出延迟（以前只能 TCP 测，UDP 协议显示"-"）。
   /// * 未连接（手机端）或临时内核启动失败：退回 TCP 连接测速。
-  Future<void> testAll() async {
-    if (testing) return;
+  /// 正在测速的节点（界面上对应节点显示转圈）
+  final Set<String> testingTags = {};
+
+  Future<void> testAll() => _test([...session.nodes]);
+
+  /// 单独重测一个节点（例如显示"超时"的节点）
+  Future<void> testOne(ProxyNode n) => _test([n]);
+
+  Future<void> _test(List<ProxyNode> list) async {
+    if (testing || list.isEmpty) return;
     testing = true;
+    testingTags.addAll(list.map((n) => n.tag));
     notifyListeners();
-    final list = [...session.nodes];
     ClashApi? api = running ? _api : null;
     var temp = false;
     if (api == null && !isMobile && backend is DesktopBackend) {
@@ -351,6 +359,7 @@ class CoreService extends ChangeNotifier {
           final a = api;
           final d = a != null ? await a.delay(n.tag, AppConfig.delayTestUrl) : await _tcpPing(n);
           delays[n.tag] = d;
+          testingTags.remove(n.tag);
           notifyListeners();
         }));
         if (temp && _tester == null) break; // 测速中途用户点了连接
@@ -361,6 +370,7 @@ class CoreService extends ChangeNotifier {
         _stopTester();
       }
       testing = false;
+      testingTags.clear();
       notifyListeners();
     }
   }

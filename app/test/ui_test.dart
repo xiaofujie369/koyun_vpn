@@ -48,7 +48,12 @@ Future<(Session, CoreService)> _services() async {
     ])
       ProxyNode({'tag': n, 'type': 'anytls', 'server': '1.2.3.4', 'server_port': 443}),
   ];
-  return (session, CoreService(storage, session));
+  final core = CoreService(storage, session);
+  core.delays[session.nodes[0].tag] = 86;
+  core.delays[session.nodes[1].tag] = -1; // 超时
+  core.delays[session.nodes[2].tag] = 420;
+  core.testingTags.add(session.nodes[3].tag); // 测速中
+  return (session, core);
 }
 
 IpService _ip(CoreService c) => IpService(c)

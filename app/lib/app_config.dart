@@ -63,8 +63,8 @@ class AppConfig {
   /// 测速地址
   static const delayTestUrl = 'https://www.gstatic.com/generate_204';
 
-  /// 订阅自动刷新间隔（App 在前台/连接中时）
-  static const autoRefreshInterval = Duration(hours: 6);
+  /// 订阅自动刷新间隔（App 运行中时）。后台新增国家 / 节点，最晚这么久客户端就能拿到
+  static const autoRefreshInterval = Duration(hours: 1);
 
   /// 本地代理端口（系统代理模式），被占用时自动顺延。
   static const defaultMixedPort = 17890;
