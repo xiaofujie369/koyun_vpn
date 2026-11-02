@@ -10,7 +10,7 @@ AppId={{6E0C3D52-7A1B-4E2B-9C4B-6B1F2A9E7C01}
 AppName=Koyun
 AppVersion={#AppVersion}
 AppPublisher=Koyun
-AppPublisherURL=https://ss.koyun520.com
+; 官网地址不写入公开仓库
 DefaultDirName={autopf}\Koyun
 DefaultGroupName=Koyun
 DisableProgramGroupPage=yes

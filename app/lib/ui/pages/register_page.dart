@@ -34,7 +34,7 @@ Future<void> showWebRegisterDialog(BuildContext context, String reason) {
       actions: [
         TextButton(
           onPressed: () async {
-            await Clipboard.setData(const ClipboardData(text: AppConfig.webRegisterUrl));
+            await Clipboard.setData(ClipboardData(text: AppConfig.webRegisterUrl));
             if (c.mounted) {
               Navigator.pop(c);
               toast(context, t.linkCopied);

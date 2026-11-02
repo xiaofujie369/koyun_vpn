@@ -1,6 +1,7 @@
 # Windows / macOS / iOS 必须在对应系统上编译，所以放在 GitHub Actions。
 # Android 在自有编译机上编译（签名密钥不上传 GitHub，更安全）。
 # 触发：推送 v* 标签自动发布；也可在 Actions 页面手动运行。
+# 域名放在仓库 Secrets（KOYUN_API / KOYUN_WEB，用 tools/encode_domains.py 生成），不写进代码。
 name: build
 
 on:
@@ -33,7 +34,7 @@ jobs:
           flutter pub get
           dart run flutter_launcher_icons
           flutter gen-l10n
-          flutter build windows --release
+          flutter build windows --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }}
       - name: 打包内核
         shell: pwsh
         run: |
@@ -75,7 +76,7 @@ jobs:
           flutter pub get
           dart run flutter_launcher_icons
           flutter gen-l10n
-          flutter build macos --release
+          flutter build macos --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }}
       - name: 打包内核（通用二进制，Intel + Apple 芯片）
         run: |
           v=${{ env.SING_BOX_VERSION }}
@@ -130,7 +131,7 @@ jobs:
           flutter pub get
           dart run flutter_launcher_icons
           flutter gen-l10n
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }}
           ver=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
           mkdir -p ../dist Payload && cp -R build/ios/iphoneos/Runner.app Payload/
           zip -qr "../dist/Koyun-$ver-ios-unsigned.ipa" Payload
