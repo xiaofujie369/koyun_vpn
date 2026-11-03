@@ -15,6 +15,7 @@ import 'app_config.dart';
 import 'core/core_service.dart';
 import 'services/session.dart';
 import 'services/storage.dart';
+import 'services/bootstrap.dart';
 import 'services/ip_info.dart';
 import 'services/reporter.dart';
 import 'services/updater.dart';
@@ -35,6 +36,13 @@ Future<void> main(List<String> args) async {
   final storage = Storage();
   await storage.init();
   await Reporter.instance.init(storage);
+  // 启动引导配置：先用本机缓存，同时联网取最新。第一次打开（没有缓存）时最多等 6 秒，
+  // 保证内置域名被封时也能拿到可用域名再登录。
+  await Bootstrap.instance.init(storage);
+  final boot = Bootstrap.instance.refresh();
+  if (!Bootstrap.instance.hasConfig) {
+    await boot.timeout(const Duration(seconds: 7), onTimeout: () => false);
+  }
   Reporter.instance.event('app_start');
   // 崩溃 / 未处理的错误：记录下来上报（后台开启时）
   final prevOnError = FlutterError.onError;

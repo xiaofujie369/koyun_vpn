@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../app_config.dart';
+import '../services/bootstrap.dart';
 import '../services/storage.dart';
 
 /// 接口错误分类：界面根据类型给出不同提示。
@@ -72,6 +73,24 @@ class XboardApi {
   String get currentHost => _hostOrder.first;
 
   Future<dynamic> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? query,
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) async {
+    try {
+      return await _requestOnce(method, path, query: query, body: body, auth: auth);
+    } on ApiError catch (e) {
+      // 所有接口域名都连不上：可能域名被封了，去拿最新的引导配置，有新域名就再试一次
+      if (e.kind == ApiErrorKind.network && await Bootstrap.instance.refresh()) {
+        return _requestOnce(method, path, query: query, body: body, auth: auth);
+      }
+      rethrow;
+    }
+  }
+
+  Future<dynamic> _requestOnce(
     String method,
     String path, {
     Map<String, dynamic>? query,
@@ -259,6 +278,9 @@ class XboardApi {
   }
 
   /// 订阅地址被墙时的兜底：直接走接口域名下的订阅接口。
-  String fallbackSubscribeUrl(String token) =>
-      '$currentHost/api/v1/client/subscribe?token=${Uri.encodeQueryComponent(token)}';
+  String fallbackSubscribeUrl(String token, [String? host]) =>
+      '${host ?? currentHost}/api/v1/client/subscribe?token=${Uri.encodeQueryComponent(token)}';
+
+  /// 所有接口域名（按优先顺序），订阅兜底时逐个尝试
+  List<String> get hostOrder => _hostOrder;
 }

@@ -20,14 +20,41 @@ class AppConfig {
   static const _apiEnc = String.fromEnvironment('KOYUN_API');
   static const _webEnc = String.fromEnvironment('KOYUN_WEB');
 
-  static final List<String> apiHosts = _decode(_apiEnc)
+  static final List<String> _builtinApi = _decode(_apiEnc)
       .split(',')
       .map((e) => e.trim())
       .where((e) => e.startsWith('https://'))
       .toList();
+  static final String _builtinWeb = _decode(_webEnc);
+
+  /// 启动引导配置（Cloudflare Pages 上的 boot.json，见 services/bootstrap.dart）下发的域名，优先使用
+  static List<String> bootApi = [];
+  static String bootWeb = '';
+
+  /// 接口域名：引导配置下发的在前，App 内置的在后（兜底）
+  static List<String> get apiHosts => {...bootApi, ..._builtinApi}.toList();
 
   /// 注册失败时引导客户打开的网页注册地址。
-  static final String webRegisterUrl = _decode(_webEnc);
+  static String get webRegisterUrl => bootWeb.isNotEmpty ? bootWeb : _builtinWeb;
+
+  /// 引导配置地址 / 验签公钥 / 解密密钥，编译时注入（tools/bootstrap.py 生成）：
+  ///   KOYUN_BOOT      = 引导文件地址列表（逗号分隔，同时请求）
+  ///   KOYUN_BOOT_PUB  = Ed25519 公钥
+  ///   KOYUN_BOOT_KEY  = AES-256 密钥
+  static const _bootEnc = String.fromEnvironment('KOYUN_BOOT');
+  static const _bootPubEnc = String.fromEnvironment('KOYUN_BOOT_PUB');
+  static const _bootKeyEnc = String.fromEnvironment('KOYUN_BOOT_KEY');
+  static final List<String> bootUrls =
+      _decode(_bootEnc).split(',').map((e) => e.trim()).where((e) => e.startsWith('https://')).toList();
+  static final List<int> bootPub = _b64(_decode(_bootPubEnc));
+  static final List<int> bootKey = _b64(_decode(_bootKeyEnc));
+  static List<int> _b64(String s) {
+    try {
+      return s.isEmpty ? const [] : base64Decode(s);
+    } catch (_) {
+      return const [];
+    }
+  }
 
   /// 数据管理后台（统计 / 反馈 / 远程配置）地址和密钥，同样编译时注入：
   ///   KOYUN_STATS      = 后台地址，例如 https://admin.example.com（不填 = 关闭上报，App 不会发送任何统计）

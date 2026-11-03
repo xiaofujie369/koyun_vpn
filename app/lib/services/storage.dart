@@ -35,6 +35,10 @@ class Storage {
   String? get lastLocalIp => _p.getString('last_local_ip');
   Future<void> setLastLocalIp(String v) => _p.setString('last_local_ip', v);
 
+  /// 上次成功获取的引导配置原文（已签名加密的 boot.json）
+  String? get bootDoc => _p.getString('boot_doc');
+  Future<void> setBootDoc(String v) => _p.setString('boot_doc', v);
+
   // ---- 账号 ----
   AccountMode get mode =>
       AccountMode.values.firstWhere((m) => m.name == _p.getString('mode'),

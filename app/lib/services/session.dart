@@ -229,7 +229,8 @@ class Session extends ChangeNotifier {
     // 先用官方订阅域名，不通再用接口域名兜底
     final candidates = <String>[
       if (subUrl != null && subUrl.isNotEmpty) _withFlag(subUrl),
-      if (token != null) _withFlag(api.fallbackSubscribeUrl(token)),
+      if (token != null)
+        for (final h in api.hostOrder) _withFlag(api.fallbackSubscribeUrl(token, h)),
     ];
     var result = RefreshResult.networkFail;
     for (final u in candidates) {

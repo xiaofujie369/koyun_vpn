@@ -3,6 +3,7 @@
 # 触发：推送 v* 标签自动发布；也可在 Actions 页面手动运行。
 # 域名放在仓库 Secrets（KOYUN_API / KOYUN_WEB，用 tools/encode_domains.py 生成），不写进代码。
 # 数据后台（可选，不设置 = 关闭上报）：KOYUN_STATS / KOYUN_STATS_KEY，同样用 encode_domains.py 生成。
+# 启动引导配置（Cloudflare Pages / koyunoss）：KOYUN_BOOT / KOYUN_BOOT_PUB / KOYUN_BOOT_KEY，用 tools/bootstrap.py 生成。
 name: build
 
 on:
@@ -35,7 +36,7 @@ jobs:
           flutter pub get
           dart run flutter_launcher_icons
           flutter gen-l10n
-          flutter build windows --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }}
+          flutter build windows --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }} --dart-define=KOYUN_BOOT=${{ secrets.KOYUN_BOOT }} --dart-define=KOYUN_BOOT_PUB=${{ secrets.KOYUN_BOOT_PUB }} --dart-define=KOYUN_BOOT_KEY=${{ secrets.KOYUN_BOOT_KEY }}
       - name: 打包内核
         shell: pwsh
         run: |
@@ -77,7 +78,7 @@ jobs:
           flutter pub get
           dart run flutter_launcher_icons
           flutter gen-l10n
-          flutter build macos --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }}
+          flutter build macos --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }} --dart-define=KOYUN_BOOT=${{ secrets.KOYUN_BOOT }} --dart-define=KOYUN_BOOT_PUB=${{ secrets.KOYUN_BOOT_PUB }} --dart-define=KOYUN_BOOT_KEY=${{ secrets.KOYUN_BOOT_KEY }}
       - name: 打包内核（通用二进制，Intel + Apple 芯片）
         run: |
           v=${{ env.SING_BOX_VERSION }}
@@ -132,7 +133,7 @@ jobs:
           flutter pub get
           dart run flutter_launcher_icons
           flutter gen-l10n
-          flutter build ios --release --no-codesign --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }}
+          flutter build ios --release --no-codesign --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }} --dart-define=KOYUN_BOOT=${{ secrets.KOYUN_BOOT }} --dart-define=KOYUN_BOOT_PUB=${{ secrets.KOYUN_BOOT_PUB }} --dart-define=KOYUN_BOOT_KEY=${{ secrets.KOYUN_BOOT_KEY }}
           ver=$(grep -E '^version:' pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
           mkdir -p ../dist Payload && cp -R build/ios/iphoneos/Runner.app Payload/
           zip -qr "../dist/Koyun-$ver-ios-unsigned.ipa" Payload

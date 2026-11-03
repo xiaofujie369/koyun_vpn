@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_config.dart';
+import 'bootstrap.dart';
 import 'reporter.dart';
 
 class UpdateInfo {
@@ -92,8 +93,9 @@ class Updater extends ChangeNotifier {
   /// 后台 /api/v1/client/config 返回的 latest 字段：
   /// {"version":"1.0.3","notes":"...","page":"https://...","downloads":{"windows":"...","android":"...","macos":"..."}}
   Future<bool?> _checkServer() async {
-    final cfg = await Reporter.instance.remoteConfig();
-    final latest = cfg?['latest'];
+    // 先看启动引导配置（Cloudflare Pages）里有没有版本信息，再问数据后台
+    await Bootstrap.instance.refresh();
+    final latest = Bootstrap.instance.latest ?? (await Reporter.instance.remoteConfig())?['latest'];
     if (latest is! Map) return null;
     final v = (latest['version'] ?? '').toString();
     if (v.isEmpty) return null;
