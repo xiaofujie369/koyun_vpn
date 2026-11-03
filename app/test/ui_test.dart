@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -87,7 +88,45 @@ Widget _app(Session s, CoreService c) => MultiProvider(
       ),
     );
 
+/// 记录"单独测速"调用，不真的去测
+class _FakeCore extends CoreService {
+  _FakeCore(super.storage, super.session);
+  final tested = <String>[];
+  @override
+  Future<void> testOne(ProxyNode n) async => tested.add(n.tag);
+}
+
 void main() {
+  testWidgets('点击延迟：触控板轻点（手指微动 6 像素）也能触发单独测速，且不会误选节点', (tester) async {
+    tester.view.physicalSize = const Size(960, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (s, c0) = await _services();
+    final c = _FakeCore(c0.storage, s)..delays.addAll(c0.delays);
+    await tester.pumpWidget(_app(s, c));
+    tester.state<HomeShellState>(find.byType(HomeShell)).goTo('nodes');
+    await tester.pump(const Duration(milliseconds: 500));
+    final before = c.selected;
+    // 模拟触控板：按下 → 移动 6 像素 → 抬起
+    final g = await tester.startGesture(tester.getCenter(find.text('86ms')), kind: PointerDeviceKind.mouse);
+    await g.moveBy(const Offset(6, 0));
+    await g.up();
+    await tester.pump();
+    expect(c.tested, [s.nodes[0].tag], reason: '点击延迟应触发单独测速');
+    expect(c.selected, before, reason: '点击延迟不应该同时选择节点');
+    // 点"测速"（没测过的节点）也能触发
+    await tester.tap(find.text('测速').first);
+    await tester.pump();
+    expect(c.tested.length, 2);
+    // 点卡片其它位置 = 选择节点，不测速
+    await tester.tap(find.text('香港D01-1X'));
+    await tester.pump();
+    expect(c.tested.length, 2);
+    expect(c.selected, s.nodes[0].tag);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+  });
+
 
   test('IP 显示', () {
     final i = IpInfo.fromJson({'ip': '203.0.113.45', 'countryCode': 'tw', 'country': 'Taiwan'});

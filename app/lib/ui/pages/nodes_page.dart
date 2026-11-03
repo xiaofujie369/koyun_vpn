@@ -184,7 +184,7 @@ class _NodesPageState extends State<NodesPage> {
                               selected: core.selected == n.tag,
                               testing: core.testingTags.contains(n.tag),
                               onTap: () => core.selectNode(n.tag),
-                              onRetest: core.testing ? null : () => core.testOne(n),
+                              onRetest: () => core.testOne(n),
                             );
                           },
                         ),
@@ -343,6 +343,8 @@ class _DelayLabel extends StatefulWidget {
 
 class _DelayLabelState extends State<_DelayLabel> {
   bool _hover = false;
+  Offset? _down;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
@@ -351,28 +353,38 @@ class _DelayLabelState extends State<_DelayLabel> {
     final color = d == null ? KColors.faint : delayColor(d);
     final label = Text(text,
         style: TextStyle(color: color, fontSize: 12, fontWeight: d == null ? FontWeight.w400 : FontWeight.w500));
-    if (widget.onTap == null) {
-      return Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), child: label);
-    }
-    return Tooltip(
-      message: t.testLatency,
-      waitDuration: const Duration(milliseconds: 600),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
-        child: GestureDetector(
+    final box = AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 34), // 点击范围大一些
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: _hover && widget.onTap != null ? KColors.field : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: label,
+    );
+    if (widget.onTap == null) return box;
+    // 用 Listener 自己判断"点击"：笔记本触控板轻点时手指会微动，
+    // 系统默认的点击识别只容忍 1 像素移动，容易点不中；这里放宽到 12 像素。
+    // 外层的 GestureDetector 负责"吃掉"这次点击，避免同时触发卡片的"选择节点"。
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: Listener(
           behavior: HitTestBehavior.opaque,
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: _hover ? KColors.field : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: label,
-          ),
+          onPointerDown: (e) => _down = e.position,
+          onPointerUp: (e) {
+            final p = _down;
+            _down = null;
+            if (p != null && (e.position - p).distance <= 12) widget.onTap!();
+          },
+          onPointerCancel: (_) => _down = null,
+          child: Tooltip(message: t.testLatency, waitDuration: const Duration(milliseconds: 600), child: box),
         ),
       ),
     );

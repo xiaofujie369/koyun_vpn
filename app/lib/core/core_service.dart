@@ -337,12 +337,23 @@ class CoreService extends ChangeNotifier {
 
   Future<void> testAll() => _test([...session.nodes]);
 
-  /// 单独重测一个节点（例如显示"超时"的节点）
-  Future<void> testOne(ProxyNode n) => _test([n]);
+  /// 单独重测一个节点。正在测速时不忽略，而是排队，当前这轮测完接着测
+  final List<ProxyNode> _queue = [];
+  Future<void> testOne(ProxyNode n) async {
+    if (testingTags.contains(n.tag)) return;
+    if (testing) {
+      _queue.add(n);
+      testingTags.add(n.tag); // 立刻转圈，让用户知道已经点上了
+      notifyListeners();
+      return;
+    }
+    await _test([n]);
+  }
 
   Future<void> _test(List<ProxyNode> list) async {
     if (testing || list.isEmpty) return;
     testing = true;
+    _queue.removeWhere((q) => list.any((n) => n.tag == q.tag));
     testingTags.addAll(list.map((n) => n.tag));
     notifyListeners();
     ClashApi? api = running ? _api : null;
@@ -370,8 +381,15 @@ class CoreService extends ChangeNotifier {
         _stopTester();
       }
       testing = false;
-      testingTags.clear();
+      testingTags.removeAll(list.map((n) => n.tag));
       notifyListeners();
+    }
+    // 测速期间用户又点了别的节点：接着测
+    if (_queue.isNotEmpty) {
+      final next = [..._queue];
+      _queue.clear();
+      testingTags.removeAll(next.map((n) => n.tag));
+      await _test(next);
     }
   }
 
