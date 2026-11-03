@@ -16,6 +16,11 @@ boot.json 内容经过 AES-256-GCM 加密 + Ed25519 签名：
   python3 tools/bootstrap.py defines             打印编译参数（KOYUN_BOOT_PUB / KOYUN_BOOT_KEY）
   python3 tools/bootstrap.py urls "url1,url2"    把引导地址列表编码成编译参数 KOYUN_BOOT
 
+配置内容（koyunvpn资料/boot_config.json）：
+  api    接口域名列表          web    官网 / 网页注册地址
+  stats  数据管理后台 {"url": "https://...", "key": "客户端密钥"}（可选）
+  latest 更新信息（可选，格式见 docs/后台接口说明.md）
+
 密钥和明文配置保存在 /root/koyunvpn/koyunvpn资料/（不会上传 GitHub）。
 """
 import base64
@@ -115,6 +120,9 @@ def check_cfg(cfg: dict):
     web = cfg.get("web", "")
     if web and not web.startswith("https://"):
         sys.exit("❌ web 必须以 https:// 开头")
+    st = cfg.get("stats")
+    if st is not None and (not isinstance(st, dict) or not str(st.get("url", "")).startswith("https://") or not st.get("key")):
+        sys.exit("❌ stats 必须是 {\"url\": \"https://...\", \"key\": \"...\"}")
 
 
 def load_plain() -> dict:

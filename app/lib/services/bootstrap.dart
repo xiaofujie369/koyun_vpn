@@ -107,6 +107,15 @@ class Bootstrap {
     final web = (cfg['web'] ?? '').toString().trim();
     if (web.startsWith('https://')) AppConfig.bootWeb = web.replaceAll(RegExp(r'/+$'), '');
     latest = cfg['latest'] is Map ? (cfg['latest'] as Map).cast<String, dynamic>() : null;
+    // 数据管理后台地址和密钥：{"url":"https://...","key":"..."}
+    final st = cfg['stats'];
+    if (st is Map) {
+      final url = (st['url'] ?? '').toString().trim().replaceAll(RegExp(r'/+$'), '');
+      if (url.startsWith('https://')) {
+        AppConfig.bootStatsBase = url;
+        AppConfig.bootStatsKey = (st['key'] ?? '').toString();
+      }
+    }
     _ts = _tsOf(cfg);
   }
 }

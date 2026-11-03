@@ -48,7 +48,7 @@ class Reporter {
       await storage.setDeviceId(id);
     }
     _deviceId = id;
-    if (!AppConfig.statsEnabled) return;
+    // 后台地址可能稍后由启动引导配置下发，所以这里不提前退出；发送前再判断是否启用
     try {
       if (await _file.exists()) {
         final list = jsonDecode(await _file.readAsString()) as List;

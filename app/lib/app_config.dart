@@ -62,8 +62,14 @@ class AppConfig {
   /// 接口说明见 docs/后台接口说明.md
   static const _statsEnc = String.fromEnvironment('KOYUN_STATS');
   static const _statsKeyEnc = String.fromEnvironment('KOYUN_STATS_KEY');
-  static final String statsBase = _decode(_statsEnc).replaceAll(RegExp(r'/+$'), '');
-  static final String statsKey = _decode(_statsKeyEnc);
+  static final String _builtinStatsBase = _decode(_statsEnc).replaceAll(RegExp(r'/+$'), '');
+  static final String _builtinStatsKey = _decode(_statsKeyEnc);
+
+  /// 启动引导配置下发的后台地址 / 密钥（优先于编译参数，换后台不用发版）
+  static String bootStatsBase = '';
+  static String bootStatsKey = '';
+  static String get statsBase => bootStatsBase.isNotEmpty ? bootStatsBase : _builtinStatsBase;
+  static String get statsKey => bootStatsKey.isNotEmpty ? bootStatsKey : _builtinStatsKey;
   static bool get statsEnabled => statsBase.startsWith('https://');
 
   /// 官网 / 网页版（用户中心里"官方网站"）。
