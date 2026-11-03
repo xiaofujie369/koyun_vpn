@@ -238,7 +238,6 @@ class _NodeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
     return Material(
       color: selected ? KColors.accentSoft : KColors.surface,
       shape: RoundedRectangleBorder(
@@ -283,35 +282,9 @@ class _NodeTile extends StatelessWidget {
                   padding: EdgeInsets.only(left: 6),
                   child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.6)),
                 )
-              else if (delay != null)
-                // 显示"超时"/"-"时：直接点这几个字就重测这一个节点
-                delay! < 0 && onRetest != null
-                    ? Tooltip(
-                        message: t.testLatency,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: onRetest,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                            child: Text(delay == -2 ? '-' : t.timeout,
-                                style: TextStyle(
-                                  color: delayColor(delay),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  decoration: TextDecoration.underline,
-                                  decorationStyle: TextDecorationStyle.dotted,
-                                  decorationColor: delayColor(delay),
-                                )),
-                          ),
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Text(
-                          delay == -2 ? '-' : (delay! < 0 ? t.timeout : '${delay}ms'),
-                          style: TextStyle(color: delayColor(delay), fontSize: 12, fontWeight: FontWeight.w500),
-                        ),
-                      ),
+              else if (delay != null || onRetest != null)
+                // 延迟数字 / 超时 / "-" / 没测过时的"测速"：点一下就单独重测这个节点（"自动选择"不显示）
+                _DelayLabel(delay: delay, onTap: onRetest),
               if (selected) ...[
                 const SizedBox(width: 6),
                 const Icon(Icons.check_circle_rounded, size: 16, color: KColors.lavender),
@@ -357,4 +330,51 @@ class _RegionChip extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// 节点右侧的延迟：可点击重测
+class _DelayLabel extends StatefulWidget {
+  const _DelayLabel({required this.delay, required this.onTap});
+  final int? delay;
+  final VoidCallback? onTap;
+  @override
+  State<_DelayLabel> createState() => _DelayLabelState();
+}
+
+class _DelayLabelState extends State<_DelayLabel> {
+  bool _hover = false;
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final d = widget.delay;
+    final text = d == null ? t.testLatency : (d == -2 ? '-' : (d < 0 ? t.timeout : '${d}ms'));
+    final color = d == null ? KColors.faint : delayColor(d);
+    final label = Text(text,
+        style: TextStyle(color: color, fontSize: 12, fontWeight: d == null ? FontWeight.w400 : FontWeight.w500));
+    if (widget.onTap == null) {
+      return Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), child: label);
+    }
+    return Tooltip(
+      message: t.testLatency,
+      waitDuration: const Duration(milliseconds: 600),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: _hover ? KColors.field : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: label,
+          ),
+        ),
+      ),
+    );
+  }
 }
