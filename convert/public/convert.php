@@ -40,13 +40,18 @@ $path = koyun_upstream_path(is_string($input['link'] ?? null) ? $input['link'] :
 if ($path === null) {
     fail(400, 'link');
 }
+$formatKey = $input['format'] ?? 'koyun';
+if (!is_string($formatKey) || !isset(KOYUN_FORMATS[$formatKey])) {
+    fail(400, 'format');
+}
+$format = KOYUN_FORMATS[$formatKey];
 
 // 最多接收 5 MB，防止异常响应占满内存
 $body = '';
 $userinfo = null;
-$ch = curl_init(rtrim($cfg['upstream'], '/') . $path . (str_contains($path, '?') ? '&' : '?') . 'flag=sing-box');
+$ch = curl_init(rtrim($cfg['upstream'], '/') . $path . (str_contains($path, '?') ? '&' : '?') . 'flag=' . $format['flag']);
 curl_setopt_array($ch, [
-    CURLOPT_USERAGENT => $cfg['user_agent'],
+    CURLOPT_USERAGENT => $format['ua'] ?? $cfg['user_agent'],
     CURLOPT_CONNECTTIMEOUT => 5,
     CURLOPT_TIMEOUT => 25,
     CURLOPT_FOLLOWLOCATION => false,
@@ -81,7 +86,7 @@ if ($status !== 200) {
 
 $info = koyun_parse_userinfo($userinfo);
 $now = time();
-$file = koyun_build_file($body, $info, $now);
+$file = koyun_build($formatKey, $body, $info, $now);
 if ($file === null) {
     fail(502, 'upstream');
 }
@@ -91,7 +96,7 @@ if ($file['count'] === 0) {
 
 respond(200, [
     'ok' => true,
-    'filename' => 'koyun-nodes-' . gmdate('Ymd', $now) . '.json',
+    'filename' => $format['name'] . '-' . gmdate('Ymd', $now) . '.' . $format['ext'],
     'count' => $file['count'],
     'info' => $info,
     'content' => $file['content'],

@@ -46,6 +46,22 @@ check('中文和斜杠不转义', str_contains($file['content'], '节点B/https'
 check('非 JSON 返回空', koyun_build_file('proxies: []', $info, 1) === null);
 check('缺少节点列表返回空', koyun_build_file('{"dns":{}}', $info, 1) === null);
 
+check('格式白名单', isset(KOYUN_FORMATS['shadowrocket'], KOYUN_FORMATS['clash']) && !isset(KOYUN_FORMATS['evil']));
+
+$vmess = 'vmess://' . base64_encode(json_encode(['ps' => '套餐到期：长期有效']));
+$links = koyun_build_links(base64_encode("STATUS=🚀↑:1GB\nanytls://p@a:1#%5Banytls%5D%E5%89%A9%E4%BD%99%E6%B5%81%E9%87%8F\nanytls://p@a:1#%E8%8A%82%E7%82%B9A\n$vmess\nvless://u@b:2?x=1#%E8%8A%82%E7%82%B9B\n"));
+check('小火箭只保留真实节点链接', $links['count'] === 2 && !str_contains($links['content'], 'STATUS'));
+check('小火箭内容一行一个节点', $links['content'] === "anytls://p@a:1#%E8%8A%82%E7%82%B9A\nvless://u@b:2?x=1#%E8%8A%82%E7%82%B9B\n");
+check('小火箭拒绝非 Base64', koyun_build_links('{not base64}') === null);
+check('小火箭拒绝不含节点的内容', koyun_build_links(base64_encode('hello')) === null);
+
+$yaml = "mode: rule\nproxies:\n    - { name: '[anytls]剩余流量：1 GB', type: anytls, server: a }\n    - { name: '节点A', type: anytls, server: a }\n    - { name: '节点B', type: vless, server: b }\nproxy-groups:\n    - { name: 自动, type: url-test, proxies: [节点A] }\nrules:\n    - MATCH,自动\n";
+$clash = koyun_build_clash($yaml);
+check('Clash 统计真实节点，不算策略组', $clash['count'] === 2);
+check('Clash 内容原样保留', $clash['content'] === $yaml);
+check('Clash 拒绝没有节点列表的内容', koyun_build_clash('mode: rule') === null);
+check('按格式分发', koyun_build('clash', $yaml, $info, 1)['count'] === 2 && koyun_build('koyun', $src, $info, 1)['count'] === 2);
+
 $rate = tempnam(sys_get_temp_dir(), 'koyun-rate');
 check('限速内放行', koyun_rate_allowed($rate, '1.1.1.1', 2, 600) && koyun_rate_allowed($rate, '1.1.1.1', 2, 601));
 check('超过限速拒绝', !koyun_rate_allowed($rate, '1.1.1.1', 2, 602));
