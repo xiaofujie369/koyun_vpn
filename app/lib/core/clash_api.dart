@@ -53,7 +53,7 @@ class ClashApi {
   Future<void> closeAllConnections() => _send('DELETE', '/connections');
 
   /// 测单个节点延迟（毫秒），失败返回 -1
-  Future<int> delay(String tag, String url, {int timeoutMs = 5000}) async {
+  Future<int> delay(String tag, String url, {int timeoutMs = 10000}) async {
     try {
       final j = await _send('GET', '/proxies/${Uri.encodeComponent(tag)}/delay',
           q: {'url': url, 'timeout': '$timeoutMs'},

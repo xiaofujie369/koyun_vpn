@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koyun_vpn/core/config_builder.dart';
+import 'package:koyun_vpn/core/delay_probe.dart';
 import 'package:koyun_vpn/models/node.dart';
 import 'package:koyun_vpn/services/storage.dart';
 import 'package:koyun_vpn/services/sub_parser.dart';
@@ -58,13 +59,117 @@ void main() {
     expect(plain.last.outbound['transport']['type'], 'ws');
   });
 
+  group('节点测速', () {
+    final nodes = SubParser.parse(sampleSingBox);
+    CoreOptions opts({bool tun = false, bool ipv6 = false, bool tester = false}) => CoreOptions(
+          nodes: nodes,
+          selected: 'auto',
+          ruleSetDir: 'rules',
+          workDir: 'work',
+          clashPort: 19090,
+          clashSecret: 's',
+          tun: tun,
+          ipv6: ipv6,
+          testPort: 19290,
+          testSecret: 'pw',
+          testerOnly: tester,
+        );
+
+    test('节点域名的解析不受 IPv6 开关影响（只有 IPv6 地址的域名也能连）', () {
+      for (final ipv6 in [false, true]) {
+        final route = ConfigBuilder.build(opts(ipv6: ipv6))['route'] as Map;
+        expect(route['default_domain_resolver']['strategy'], 'prefer_ipv4');
+      }
+    });
+
+    test('只有 TUN 模式才绑定默认网卡', () {
+      expect((ConfigBuilder.build(opts())['route'] as Map)['auto_detect_interface'], false);
+      expect((ConfigBuilder.build(opts(tun: true))['route'] as Map)['auto_detect_interface'], true);
+    });
+
+    test('测速入口：每个节点一个用户，规则排在最前面', () {
+      final cfg = ConfigBuilder.build(opts());
+      final inbound = (cfg['inbounds'] as List).cast<Map>().firstWhere((i) => i['tag'] == 'test-in');
+      expect(inbound['listen'], '127.0.0.1');
+      expect((inbound['users'] as List).length, nodes.length);
+      final rules = (cfg['route'] as Map)['rules'] as List;
+      expect(rules.first, {
+        'inbound': ['test-in'],
+        'auth_user': ['n0'],
+        'outbound': nodes.first.tag,
+      });
+      expect(rules[nodes.length], {'action': 'sniff'});
+    });
+
+    test('临时测速内核没有自动选择组', () {
+      final cfg = ConfigBuilder.build(opts(tester: true));
+      final outbounds = (cfg['outbounds'] as List).cast<Map>();
+      expect(outbounds.any((o) => o['tag'] == 'auto'), false);
+      expect(outbounds.first['outbounds'], isNot(contains('auto')));
+      expect(outbounds.first['default'], nodes.first.tag);
+    });
+
+    /// 假的内核测速入口：回应 CONNECT 后，第一次 HEAD 很慢（模拟握手），第二次很快
+    Future<(ServerSocket, List<String>)> fakeProxy({bool closeAfterFirst = false, String connect = '200 OK'}) async {
+      final seen = <String>[];
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((c) {
+        var heads = 0;
+        c.listen((data) async {
+          final text = latin1.decode(data);
+          seen.add(text);
+          if (text.startsWith('CONNECT')) {
+            c.write('HTTP/1.1 $connect\r\n\r\n');
+            return;
+          }
+          heads++;
+          if (closeAfterFirst && heads > 1) return;
+          if (heads == 1) await Future.delayed(const Duration(milliseconds: 300));
+          c.write('HTTP/1.1 204 No Content\r\nServer: x\r\n\r\n');
+          if (closeAfterFirst) await c.close();
+        }, onError: (_) {});
+      });
+      return (server, seen);
+    }
+
+    DelayProbe probe(ServerSocket s) => DelayProbe(port: s.port, password: 'pw', users: {'a': 'n0'});
+
+    test('只计第二次请求的耗时，并带上节点对应的用户名', () async {
+      final (s, seen) = await fakeProxy();
+      final ms = await probe(s).measure('a');
+      await s.close();
+      expect(ms, inInclusiveRange(1, 200));
+      expect(seen.first, contains('CONNECT cp.cloudflare.com:80'));
+      expect(seen.first, contains('Proxy-Authorization: Basic ${base64.encode(utf8.encode('n0:pw'))}'));
+    });
+
+    test('连接不能复用时退回第一次的结果', () async {
+      final (s, _) = await fakeProxy(closeAfterFirst: true);
+      final ms = await probe(s).measure('a');
+      await s.close();
+      expect(ms, greaterThanOrEqualTo(290));
+    });
+
+    test('入口拒绝、未知节点、超时都返回 -1', () async {
+      final (s, _) = await fakeProxy(connect: '407 Proxy Authentication Required');
+      expect(await probe(s).measure('a'), -1);
+      expect(await probe(s).measure('不存在'), -1);
+      await s.close();
+
+      final silent = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      silent.listen((_) {});
+      expect(await probe(silent).measure('a', timeout: const Duration(milliseconds: 100)), -1);
+      await silent.close();
+    });
+  });
+
   test('生成配置并写出供内核校验', () {
     final nodes = <ProxyNode>[...SubParser.parse(sampleSingBox), ...SubParser.parse(sampleLinks)];
     for (final tun in [false, true]) {
       final cfg = ConfigBuilder.build(CoreOptions(
         nodes: nodes,
         selected: nodes[2].tag,
-        ruleSetDir: Directory.current.absolute.path + '/assets/rules',
+        ruleSetDir: '${Directory.current.absolute.path}/assets/rules',
         workDir: Directory.systemTemp.path,
         clashPort: 19090,
         clashSecret: 'secret',
@@ -72,6 +177,8 @@ void main() {
         mixedPort: 17890,
         routeMode: RouteMode.rule,
         ipv6: tun,
+        testPort: 19290,
+        testSecret: 'pw',
       ));
       final out = File('build/test-config-${tun ? 'tun' : 'proxy'}.json');
       out.createSync(recursive: true);

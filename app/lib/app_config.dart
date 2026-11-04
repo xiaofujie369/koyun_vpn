@@ -93,8 +93,14 @@ class AppConfig {
 
   static String get apiUserAgent => 'KoyunVPN/$appVersion';
 
-  /// 测速地址
+  /// 测速地址（和 Clash Verge 默认一致；由节点访问，所以只要节点能上网就通）
+  static const delayProbeHost = 'cp.cloudflare.com';
+
+  /// 备用测速地址：内核 API 接口只支持 https，仅在读不到测速入口信息时使用
   static const delayTestUrl = 'https://www.gstatic.com/generate_204';
+
+  /// 单个节点测速的超时时间（和 Clash Verge 默认一致）
+  static const delayTimeout = Duration(seconds: 10);
 
   /// 订阅自动刷新间隔（App 运行中时）。后台新增国家 / 节点，最晚这么久客户端就能拿到
   static const autoRefreshInterval = Duration(hours: 1);

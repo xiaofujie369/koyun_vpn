@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -12,6 +13,7 @@ import '../services/reporter.dart';
 import '../services/session.dart';
 import '../services/storage.dart';
 import 'clash_api.dart';
+import 'delay_probe.dart';
 import 'config_builder.dart';
 import 'core_backend.dart';
 import 'desktop_backend.dart';
@@ -79,6 +81,7 @@ class CoreService extends ChangeNotifier {
       try {
         final j = jsonDecode(await File('$_workDir/api.json').readAsString());
         _api = ClashApi(j['port'], j['secret']);
+        _probe = DelayProbe.fromJson(j);
         status = CoreStatus.running;
         connectedAt = DateTime.now();
         _afterStart();
@@ -112,6 +115,7 @@ class CoreService extends ChangeNotifier {
     if (sig == _lastNodesSig) return;
     _lastNodesSig = sig;
     delays.clear();
+    _cancelTests();
     if (running && session.nodes.isNotEmpty) {
       unawaited(connect());
     } else if (running && session.nodes.isEmpty) {
@@ -146,7 +150,7 @@ class CoreService extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    _stopTester();
+    _cancelTests();
     final wasRunning = running;
     final t0 = DateTime.now();
     status = CoreStatus.starting;
@@ -158,6 +162,8 @@ class CoreService extends ChangeNotifier {
       final clashPort = await _freePort(isMobile ? 29090 : 19090);
       final secret = _randomHex(32);
       final mixedPort = isMobile ? 0 : await _freePort(AppConfig.defaultMixedPort);
+      final testPort = await _freePort(isMobile ? 29290 : 19290);
+      final testSecret = _randomHex(16);
       final cfg = ConfigBuilder.build(CoreOptions(
         nodes: session.nodes,
         selected: selected,
@@ -171,11 +177,15 @@ class CoreService extends ChangeNotifier {
         ipv6: storage.ipv6,
         mobile: isMobile,
         logLevel: kDebugMode ? 'info' : 'warn',
+        testPort: testPort,
+        testSecret: testSecret,
       ));
       await _stopWatchers();
       await backend.start(jsonEncode(cfg), tun: tun, mixedPort: mixedPort);
       _api = ClashApi(clashPort, secret);
-      await File('$_workDir/api.json').writeAsString(jsonEncode({'port': clashPort, 'secret': secret}));
+      _probe = DelayProbe(port: testPort, password: testSecret, users: ConfigBuilder.testUsers(session.nodes));
+      await File('$_workDir/api.json')
+          .writeAsString(jsonEncode({'port': clashPort, 'secret': secret, ..._probe!.toJson()}));
       // 等内核就绪（最多 15 秒）
       var ok = false;
       for (var i = 0; i < 60; i++) {
@@ -256,6 +266,7 @@ class CoreService extends ChangeNotifier {
     _stopWatchers();
     _api?.close();
     _api = null;
+    _probe = null;
   }
 
   /// 上报用的连接信息（节点名、协议、模式）
@@ -270,7 +281,7 @@ class CoreService extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
-    _stopTester();
+    _cancelTests();
     if (running && connectedAt != null) {
       Reporter.instance.event('disconnect', {
         ..._connInfo(),
@@ -323,80 +334,95 @@ class CoreService extends ChangeNotifier {
     if (running) await connect();
   }
 
-  /// 测速：已连接时测真实延迟（经代理访问测速地址）；
-  /// 未连接时测 TCP 握手延迟（UDP 协议节点无法测，显示"-"）。
-  Process? _tester; // 未连接时临时启动的测速内核
-
-  /// 测速。
-  /// * 已连接：通过内核测真实延迟（所有协议都支持）。
-  /// * 未连接（电脑端）：临时在后台启动一个只用来测速的内核，测完立即关闭。
-  ///   这样 Hysteria2 / TUIC 这类基于 UDP 的协议也能测出延迟（以前只能 TCP 测，UDP 协议显示"-"）。
+  /// 测速（算法见 DelayProbe）。
+  /// * 已连接：用正在运行的内核测。
+  /// * 未连接（电脑端）：临时在后台启动一个只用来测速的内核，空闲几秒后关闭。
   /// * 未连接（手机端）或临时内核启动失败：退回 TCP 连接测速。
+  ///
+  /// 全部测速最多同时测 10 个；点单个节点不排队，立刻开始测。
+  static const _testParallel = 10;
+
   /// 正在测速的节点（界面上对应节点显示转圈）
   final Set<String> testingTags = {};
+  DelayProbe? _probe; // 正式内核的测速入口
+  Process? _tester;
+  Future<DelayProbe?>? _testerProbe;
+  Timer? _testerIdle;
+  int _activeTests = 0;
+  int _testGen = 0; // 内核重启 / 节点变化时加一，作废还没出结果的测速
 
-  Future<void> testAll() => _test([...session.nodes]);
-
-  /// 单独重测一个节点。正在测速时不忽略，而是排队，当前这轮测完接着测
-  final List<ProxyNode> _queue = [];
-  Future<void> testOne(ProxyNode n) async {
-    if (testingTags.contains(n.tag)) return;
-    if (testing) {
-      _queue.add(n);
-      testingTags.add(n.tag); // 立刻转圈，让用户知道已经点上了
-      notifyListeners();
-      return;
-    }
-    await _test([n]);
-  }
-
-  Future<void> _test(List<ProxyNode> list) async {
-    if (testing || list.isEmpty) return;
+  Future<void> testAll() async {
+    if (testing || session.nodes.isEmpty) return;
+    final gen = _testGen;
+    final queue = Queue<ProxyNode>.of(session.nodes.where((n) => !testingTags.contains(n.tag)));
     testing = true;
-    _queue.removeWhere((q) => list.any((n) => n.tag == q.tag));
-    testingTags.addAll(list.map((n) => n.tag));
+    testingTags.addAll(queue.map((n) => n.tag));
     notifyListeners();
-    ClashApi? api = running ? _api : null;
-    var temp = false;
-    if (api == null && !isMobile && backend is DesktopBackend) {
-      api = await _startTester(list);
-      temp = api != null;
+    Future<void> worker() async {
+      while (queue.isNotEmpty && gen == _testGen) {
+        await _measure(queue.removeFirst(), gen);
+      }
     }
-    const parallel = 8;
-    try {
-      for (var i = 0; i < list.length; i += parallel) {
-        final batch = list.skip(i).take(parallel);
-        await Future.wait(batch.map((n) async {
-          final a = api;
-          final d = a != null ? await a.delay(n.tag, AppConfig.delayTestUrl) : await _tcpPing(n);
-          delays[n.tag] = d;
-          testingTags.remove(n.tag);
-          notifyListeners();
-        }));
-        if (temp && _tester == null) break; // 测速中途用户点了连接
-      }
-    } finally {
-      if (temp) {
-        api?.close();
-        _stopTester();
-      }
+
+    await Future.wait(List.generate(_testParallel, (_) => worker()));
+    if (gen == _testGen) {
       testing = false;
-      testingTags.removeAll(list.map((n) => n.tag));
       notifyListeners();
-    }
-    // 测速期间用户又点了别的节点：接着测
-    if (_queue.isNotEmpty) {
-      final next = [..._queue];
-      _queue.clear();
-      testingTags.removeAll(next.map((n) => n.tag));
-      await _test(next);
     }
   }
 
-  Future<ClashApi?> _startTester(List<ProxyNode> nodes) async {
+  /// 单独测一个节点
+  Future<void> testOne(ProxyNode n) async {
+    if (!testingTags.add(n.tag)) return;
+    notifyListeners();
+    await _measure(n, _testGen);
+  }
+
+  Future<void> _measure(ProxyNode n, int gen) async {
+    _activeTests++;
+    _testerIdle?.cancel();
     try {
+      // 至少转圈 0.5 秒，失败得很快时也能看出确实测过了
+      final results = await Future.wait<int?>([
+        _measureOnce(n, gen),
+        Future<int?>.delayed(const Duration(milliseconds: 500)),
+      ]);
+      if (gen == _testGen) delays[n.tag] = results.first!;
+    } finally {
+      _activeTests--;
+      if (gen == _testGen) {
+        testingTags.remove(n.tag);
+        notifyListeners();
+      }
+      if (_activeTests == 0) {
+        _testerIdle = Timer(const Duration(seconds: 5), _stopTester);
+      }
+    }
+  }
+
+  Future<int> _measureOnce(ProxyNode n, int gen) async {
+    final api = running ? _api : null;
+    if (api != null) {
+      final probe = _probe;
+      return probe != null ? probe.measure(n.tag) : api.delay(n.tag, AppConfig.delayTestUrl);
+    }
+    if (!isMobile && backend is DesktopBackend && !busy) {
+      final starting = _testerProbe ??= _startTester();
+      final probe = await starting;
+      if (probe == null && identical(_testerProbe, starting)) _testerProbe = null; // 启动失败，下次再试
+      if (gen != _testGen) return -1;
+      if (probe != null) return probe.measure(n.tag);
+    }
+    return _tcpPing(n);
+  }
+
+  Future<DelayProbe?> _startTester() async {
+    try {
+      final nodes = [...session.nodes];
       final port = await _freePort(19190);
       final secret = _randomHex(16);
+      final testPort = await _freePort(19390);
+      final testSecret = _randomHex(16);
       final cfg = ConfigBuilder.build(CoreOptions(
         nodes: nodes,
         selected: 'auto',
@@ -407,23 +433,35 @@ class CoreService extends ChangeNotifier {
         routeMode: RouteMode.global,
         ipv6: storage.ipv6,
         logLevel: 'error',
+        testPort: testPort,
+        testSecret: testSecret,
+        testerOnly: true,
       ));
-      // 不和正式内核抢缓存文件
-      (cfg['experimental'] as Map)['cache_file'] = {'enabled': false};
       final path = '$_workDir/test_config.json';
       await File(path).writeAsString(jsonEncode(cfg));
       final bin = (backend as DesktopBackend).binaryPath;
       if (!File(bin).existsSync()) return null;
-      _tester = await Process.start(bin, ['run', '-c', path, '-D', _workDir], workingDirectory: _workDir);
-      _tester!.stdout.drain<void>();
-      _tester!.stderr.drain<void>();
-      final api = ClashApi(port, secret);
-      for (var i = 0; i < 40; i++) {
-        if (_tester == null) return null;
-        if (await api.ping()) return api;
-        await Future.delayed(const Duration(milliseconds: 150));
+      final gen = _testGen;
+      final tester = await Process.start(bin, ['run', '-c', path, '-D', _workDir], workingDirectory: _workDir);
+      if (gen != _testGen) {
+        tester.kill(); // 启动期间用户点了连接
+        return null;
       }
-      api.close();
+      _tester = tester;
+      tester.stdout.drain<void>();
+      tester.stderr.drain<void>();
+      final api = ClashApi(port, secret);
+      try {
+        for (var i = 0; i < 40; i++) {
+          if (_tester != tester) return null;
+          if (await api.ping()) {
+            return DelayProbe(port: testPort, password: testSecret, users: ConfigBuilder.testUsers(nodes));
+          }
+          await Future.delayed(const Duration(milliseconds: 150));
+        }
+      } finally {
+        api.close();
+      }
       _stopTester();
     } catch (_) {
       _stopTester();
@@ -432,8 +470,18 @@ class CoreService extends ChangeNotifier {
   }
 
   void _stopTester() {
+    _testerIdle?.cancel();
     _tester?.kill();
     _tester = null;
+    _testerProbe = null;
+  }
+
+  /// 作废所有进行中的测速（内核要重启、节点列表变了）
+  void _cancelTests() {
+    _testGen++;
+    testing = false;
+    testingTags.clear();
+    _stopTester();
   }
 
   static Future<int> _tcpPing(ProxyNode n) async {
@@ -465,7 +513,7 @@ class CoreService extends ChangeNotifier {
 
   @override
   void dispose() {
-    _stopTester();
+    _cancelTests();
     session.removeListener(_onSessionChanged);
     super.dispose();
   }

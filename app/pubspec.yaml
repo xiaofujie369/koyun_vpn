@@ -1,7 +1,7 @@
 name: koyun_vpn
 description: Koyun VPN 客户端（sing-box 内核，对接 Xboard）
 publish_to: 'none'
-version: 1.1.0+11
+version: 1.1.1+12
 
 environment:
   sdk: ^3.9.0

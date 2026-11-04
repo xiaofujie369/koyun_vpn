@@ -16,6 +16,9 @@ class CoreOptions {
     this.ipv6 = false,
     this.mobile = false,
     this.logLevel = 'warn',
+    this.testPort,
+    this.testSecret = '',
+    this.testerOnly = false,
   });
 
   final List<ProxyNode> nodes;
@@ -33,6 +36,13 @@ class CoreOptions {
   final bool ipv6;
   final bool mobile;
   final String logLevel;
+
+  /// 测速入口端口（不设置就没有测速入口）和密码
+  final int? testPort;
+  final String testSecret;
+
+  /// 未连接时临时启动的测速内核：不要"自动选择"（否则一启动就把所有节点测一遍，干扰测速）、不用缓存文件
+  final bool testerOnly;
 }
 
 /// 生成 sing-box 1.14 配置。
@@ -44,10 +54,16 @@ class CoreOptions {
 /// * 国内域名走阿里 DNS 直连，其余走 1.1.1.1 DoH 经代理，防 DNS 污染。
 /// * 分流规则集打包在 App 内（本地 .srs 文件），首次启动不依赖 GitHub，国内也能秒开。
 class ConfigBuilder {
+  /// 节点 tag -> 测速入口用户名
+  static Map<String, String> testUsers(List<ProxyNode> nodes) =>
+      {for (var i = 0; i < nodes.length; i++) nodes[i].tag: 'n$i'};
+
   static Map<String, dynamic> build(CoreOptions o) {
     final nodeTags = o.nodes.map((n) => n.tag).toList();
-    final selected =
-        (o.selected == 'auto' || nodeTags.contains(o.selected)) ? o.selected : 'auto';
+    final selected = nodeTags.contains(o.selected)
+        ? o.selected
+        : (o.testerOnly && nodeTags.isNotEmpty ? nodeTags.first : 'auto');
+    final testUsers = o.testPort == null ? const <String, String>{} : ConfigBuilder.testUsers(o.nodes);
 
     final inbounds = <Map<String, dynamic>>[];
     if (o.tun) {
@@ -74,6 +90,19 @@ class ConfigBuilder {
         'listen': '127.0.0.1',
         'listen_port': o.mixedPort,
         if (o.setSystemProxy) 'set_system_proxy': true,
+      });
+    }
+
+    // 测速入口：只监听本机、带随机密码；用户名决定走哪个节点，不经过选择器，也不影响正在使用的节点
+    if (o.testPort != null) {
+      inbounds.add({
+        'type': 'mixed',
+        'tag': 'test-in',
+        'listen': '127.0.0.1',
+        'listen_port': o.testPort,
+        'users': [
+          for (final u in testUsers.values) {'username': u, 'password': o.testSecret},
+        ],
       });
     }
 
@@ -108,24 +137,27 @@ class ConfigBuilder {
         {
           'type': 'selector',
           'tag': 'proxy',
-          'outbounds': ['auto', ...nodeTags],
+          'outbounds': [if (!o.testerOnly) 'auto', ...nodeTags],
           'default': selected,
           'interrupt_exist_connections': true,
         },
-        {
-          'type': 'urltest',
-          'tag': 'auto',
-          'outbounds': nodeTags,
-          'url': 'https://www.gstatic.com/generate_204',
-          'interval': '10m',
-          'tolerance': 80,
-          'idle_timeout': '30m',
-        },
+        if (!o.testerOnly)
+          {
+            'type': 'urltest',
+            'tag': 'auto',
+            'outbounds': nodeTags,
+            'url': 'https://www.gstatic.com/generate_204',
+            'interval': '10m',
+            'tolerance': 80,
+            'idle_timeout': '30m',
+          },
         ...o.nodes.map((n) => n.outbound),
         {'type': 'direct', 'tag': 'direct'},
       ],
       'route': {
         'rules': [
+          for (final e in testUsers.entries)
+            {'inbound': ['test-in'], 'auth_user': [e.value], 'outbound': e.key},
           {'action': 'sniff'},
           {'protocol': 'dns', 'action': 'hijack-dns'},
           {'ip_is_private': true, 'outbound': 'direct'},
@@ -161,16 +193,21 @@ class ConfigBuilder {
           },
         ],
         'final': 'proxy',
-        'auto_detect_interface': true,
-        // 解析节点服务器域名用国内 DNS（节点地址本身不能走代理解析）
-        'default_domain_resolver': {'server': 'dns-direct', 'strategy': strategy},
+        // 绑定默认网卡只为防止 TUN 回环。系统代理模式下交给系统路由，
+        // 否则 IPv6 走的网卡和默认 IPv4 网卡不同时，IPv6 节点连不上。
+        'auto_detect_interface': o.tun || o.mobile,
+        // 解析节点服务器域名用国内 DNS（节点地址本身不能走代理解析）。
+        // 不受 IPv6 开关影响：那个开关管的是访问网站，只有 IPv6 地址的节点不能因此解析失败。
+        'default_domain_resolver': {'server': 'dns-direct', 'strategy': 'prefer_ipv4'},
       },
       'experimental': {
-        'cache_file': {
-          'enabled': true,
-          'path': '${o.workDir}/cache.db',
-          'store_fakeip': false,
-        },
+        'cache_file': o.testerOnly
+            ? {'enabled': false} // 不和正式内核抢缓存文件
+            : {
+                'enabled': true,
+                'path': '${o.workDir}/cache.db',
+                'store_fakeip': false,
+              },
         'clash_api': {
           'external_controller': '127.0.0.1:${o.clashPort}',
           'secret': o.clashSecret,
