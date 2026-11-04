@@ -31,6 +31,9 @@ class AppConfig {
   static List<String> bootApi = [];
   static String bootWeb = '';
 
+  /// 订阅转换网站地址（只由引导配置下发；没有下发时 App 不显示入口）
+  static String bootConvert = '';
+
   /// 接口域名：引导配置下发的在前，App 内置的在后（兜底）
   static List<String> get apiHosts => {...bootApi, ..._builtinApi}.toList();
 
@@ -95,6 +98,9 @@ class AppConfig {
 
   /// 测速地址（和 Clash Verge 默认一致；由节点访问，所以只要节点能上网就通）
   static const delayProbeHost = 'cp.cloudflare.com';
+
+  /// 主测速地址失败时换这个再试一次（个别线路 / 出口访问不了 Cloudflare 时也能测出来）
+  static const delayProbeFallbackHost = 'www.gstatic.com';
 
   /// 备用测速地址：内核 API 接口只支持 https，仅在读不到测速入口信息时使用
   static const delayTestUrl = 'https://www.gstatic.com/generate_204';

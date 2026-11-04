@@ -15,6 +15,7 @@ import '../util.dart';
 import '../widgets/feedback_dialog.dart';
 import '../widgets/update_dialog.dart';
 import 'home_shell.dart';
+import 'import_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -51,12 +52,17 @@ class _ProfilePageState extends State<ProfilePage> {
           if (s.totalBytes > 0 || !local) _TrafficCard(session: s),
           const SizedBox(height: 14),
           _Section(title: t.helpSupport, icon: Icons.headset_mic_outlined, children: [
-            _Item(Icons.refresh_rounded, t.refreshSubscription, onTap: () async {
-              final r = await s.refresh();
-              if (context.mounted) {
-                toast(context, r == RefreshResult.ok ? t.refreshOk(s.nodes.length) : t.refreshNetworkFail);
-              }
-            }),
+            if (s.isFileImport)
+              _Item(Icons.upload_file_rounded, t.importAgain,
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const ImportPage())))
+            else
+              _Item(Icons.refresh_rounded, t.refreshSubscription, onTap: () async {
+                final r = await s.refresh();
+                if (context.mounted) {
+                  toast(context, r == RefreshResult.ok ? t.refreshOk(s.nodes.length) : t.refreshNetworkFail);
+                }
+              }),
             if (!local) ...[
               _Item(Icons.receipt_long_outlined, t.orders,
                   onTap: () => openUrl(context, '${AppConfig.websiteUrl}/#/order')),

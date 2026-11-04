@@ -42,6 +42,9 @@ abstract class CoreBackend {
   /// 最近日志（用于排查"连不上"）
   List<String> get recentLogs;
 
+  /// 往日志里加一行（设置 → 日志 能看到）
+  void addLog(String line);
+
   /// 桌面端：TUN 是否可用（Windows 需管理员）
   Future<bool> tunAvailable() async => true;
 

@@ -18,6 +18,7 @@ boot.json 内容经过 AES-256-GCM 加密 + Ed25519 签名：
 
 配置内容（koyunvpn资料/boot_config.json）：
   api    接口域名列表          web    官网 / 网页注册地址
+  convert 订阅转换网站地址（可选）
   stats  数据管理后台 {"url": "https://...", "key": "客户端密钥"}（可选）
   latest 更新信息（可选，格式见 docs/后台接口说明.md）
 
@@ -120,6 +121,9 @@ def check_cfg(cfg: dict):
     web = cfg.get("web", "")
     if web and not web.startswith("https://"):
         sys.exit("❌ web 必须以 https:// 开头")
+    conv = cfg.get("convert", "")
+    if conv and not conv.startswith("https://"):
+        sys.exit("❌ convert 必须以 https:// 开头")
     st = cfg.get("stats")
     if st is not None and (not isinstance(st, dict) or not str(st.get("url", "")).startswith("https://") or not st.get("key")):
         sys.exit("❌ stats 必须是 {\"url\": \"https://...\", \"key\": \"...\"}")
@@ -163,6 +167,8 @@ def cmd_edit():
     cfg["api"] = ask_list("① 接口域名（App 登录 / 订阅用，按顺序尝试，被封的放后面或删掉）", cfg.get("api", []))
     w = ask_list("② 官网 / 网页注册地址（只填一个）", [cfg["web"]] if cfg.get("web") else [])
     cfg["web"] = w[0] if w else ""
+    c = ask_list("③ 订阅转换网站（只填一个）", [cfg["convert"]] if cfg.get("convert") else [])
+    cfg["convert"] = c[0] if c else ""
     check_cfg(cfg)
     print("\n将要发布的配置：")
     print(json.dumps(cfg, ensure_ascii=False, indent=1))

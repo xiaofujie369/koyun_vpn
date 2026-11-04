@@ -18,7 +18,7 @@ enum RefreshResult { ok, networkFail, unauthorized, unavailable, empty, error }
 /// * 首次：登录成功 → 保存凭证 → 拉订阅。
 /// * 之后每次打开：先用本地缓存的节点立即显示（离线也能连），后台自动刷新订阅；
 ///   手动刷新随时可点。
-/// * 登录失败 / 接口全部不通：可切换为"本地导入订阅"模式，不依赖面板接口。
+/// * 登录失败 / 接口全部不通：可导入转换网站生成的本地文件，不依赖面板接口。
 class Session extends ChangeNotifier {
   Session(this.storage, this.api);
 
@@ -120,20 +120,22 @@ class Session extends ChangeNotifier {
     await refresh();
   }
 
-  /// 本地导入订阅（链接，或直接粘贴节点分享链接 / sing-box JSON）
+  /// 通过文件或粘贴内容导入的节点，不能联网刷新（旧版导入链接的客户仍可刷新）
+  bool get isFileImport => mode == AccountMode.local && storage.localSubUrl == null;
+
+  /// 导入转换网站生成的文件内容（也兼容节点分享链接 / sing-box JSON）
   Future<RefreshResult> importLocal(String input) async {
     final text = input.trim();
-    if (text.startsWith('http://') || text.startsWith('https://')) {
-      final r = await _fetchSub(text);
-      if (r.$1 != RefreshResult.ok) return r.$1;
-      await storage.setLocalSubUrl(text);
-    } else {
-      final parsed = SubParser.parse(text);
-      if (parsed.isEmpty) return RefreshResult.empty;
-      nodes = parsed;
-      subInfo = null;
-      await storage.setLocalSubUrl(null);
+    final List<ProxyNode> parsed;
+    try {
+      parsed = SubParser.parse(text);
+    } catch (_) {
+      return RefreshResult.empty; // 内容不完整或不是合法 JSON
     }
+    if (parsed.isEmpty) return RefreshResult.empty;
+    nodes = parsed;
+    subInfo = SubParser.parseInfo(text);
+    await storage.setLocalSubUrl(null);
     await storage.setAuthData(null);
     user = null;
     subscribe = null;
@@ -141,6 +143,8 @@ class Session extends ChangeNotifier {
     await storage.setMode(mode);
     await _saveCache();
     lastResult = RefreshResult.ok;
+    lastRefreshAt = DateTime.now();
+    await storage.setLastRefresh(lastRefreshAt!.millisecondsSinceEpoch);
     notifyListeners();
     return RefreshResult.ok;
   }

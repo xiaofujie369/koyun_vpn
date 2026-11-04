@@ -57,6 +57,9 @@ class MobileBackend extends CoreBackend {
   Stream<CoreStatus> get externalStatus => _status.stream;
 
   @override
+  void addLog(String line) => _addLog(line);
+
+  @override
   List<String> get recentLogs => List.unmodifiable(_logs);
 
   @override

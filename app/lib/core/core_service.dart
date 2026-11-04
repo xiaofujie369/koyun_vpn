@@ -81,7 +81,7 @@ class CoreService extends ChangeNotifier {
       try {
         final j = jsonDecode(await File('$_workDir/api.json').readAsString());
         _api = ClashApi(j['port'], j['secret']);
-        _probe = DelayProbe.fromJson(j);
+        _probe = DelayProbe.fromJson(j, log: backend.addLog);
         status = CoreStatus.running;
         connectedAt = DateTime.now();
         _afterStart();
@@ -183,7 +183,8 @@ class CoreService extends ChangeNotifier {
       await _stopWatchers();
       await backend.start(jsonEncode(cfg), tun: tun, mixedPort: mixedPort);
       _api = ClashApi(clashPort, secret);
-      _probe = DelayProbe(port: testPort, password: testSecret, users: ConfigBuilder.testUsers(session.nodes));
+      _probe = DelayProbe(
+          port: testPort, password: testSecret, users: ConfigBuilder.testUsers(session.nodes), log: backend.addLog);
       await File('$_workDir/api.json')
           .writeAsString(jsonEncode({'port': clashPort, 'secret': secret, ..._probe!.toJson()}));
       // 等内核就绪（最多 15 秒）
@@ -449,13 +450,18 @@ class CoreService extends ChangeNotifier {
       }
       _tester = tester;
       tester.stdout.drain<void>();
-      tester.stderr.drain<void>();
+      // 临时测速内核的报错（连不上节点的具体原因）也放进日志
+      tester.stderr
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .transform(const LineSplitter())
+          .listen((l) => backend.addLog('[测速内核] ${l.replaceAll(RegExp(r'\x1b\[[0-9;]*m'), '')}'), onError: (_) {});
       final api = ClashApi(port, secret);
       try {
         for (var i = 0; i < 40; i++) {
           if (_tester != tester) return null;
           if (await api.ping()) {
-            return DelayProbe(port: testPort, password: testSecret, users: ConfigBuilder.testUsers(nodes));
+            return DelayProbe(
+                port: testPort, password: testSecret, users: ConfigBuilder.testUsers(nodes), log: backend.addLog);
           }
           await Future.delayed(const Duration(milliseconds: 150));
         }

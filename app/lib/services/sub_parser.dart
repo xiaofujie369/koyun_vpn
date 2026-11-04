@@ -58,6 +58,20 @@ class SubParser {
     return nodes;
   }
 
+  /// 读取转换网站写在文件里的流量和到期信息，没有则返回 null
+  static SubInfo? parseInfo(String body) {
+    final text = body.trim();
+    if (!text.startsWith('{')) return null;
+    try {
+      final k = (jsonDecode(text) as Map)['koyun'];
+      if (k is! Map) return null;
+      int n(String key) => (k[key] as num?)?.toInt() ?? 0;
+      return SubInfo(upload: n('upload'), download: n('download'), total: n('total'), expire: n('expire'));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 我们自己生成配置时使用的保留 tag
   static const _reserved = {'proxy', 'auto', 'direct', 'dns-out', 'block'};
 

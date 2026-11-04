@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Koyun</title>
+<link rel="icon" href="logo.jpg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="logo.jpg" alt="" width="56" height="56">
+    <h1 data-i18n="title"></h1>
+    <p data-i18n="subtitle"></p>
+  </header>
+
+  <form id="form" class="card">
+    <label for="link" data-i18n="label"></label>
+    <textarea id="link" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" data-i18n-placeholder="placeholder"></textarea>
+    <button id="convert" type="submit" class="primary" data-i18n="convert"></button>
+    <p id="error" class="error" role="alert" hidden></p>
+  </form>
+
+  <section id="result" class="card" hidden aria-live="polite">
+    <h2 id="summary"></h2>
+    <p id="detail" class="muted" hidden></p>
+    <div class="actions">
+      <button id="download" type="button" class="primary" data-i18n="download"></button>
+      <button id="copy" type="button" data-i18n="copy"></button>
+    </div>
+    <ol>
+      <li data-i18n="step1"></li>
+      <li data-i18n="step2"></li>
+      <li data-i18n="step3"></li>
+    </ol>
+  </section>
+
+  <p class="muted note" data-i18n="privacy"></p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

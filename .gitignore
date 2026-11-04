@@ -17,3 +17,6 @@ secrets/
 # 个人资料（含账号密码，绝不能进仓库）
 koyunvpn资料/
 app/test/shots/
+
+# 转换网站的服务器配置（含域名）
+convert/config.php

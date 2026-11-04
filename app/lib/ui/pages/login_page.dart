@@ -175,7 +175,7 @@ class _LoginPageState extends State<LoginPage> {
                     TextButton.icon(
                       onPressed: () => Navigator.of(context)
                           .push(MaterialPageRoute(builder: (_) => const ImportPage())),
-                      icon: const Icon(Icons.link_rounded, size: 18),
+                      icon: const Icon(Icons.upload_file_rounded, size: 18),
                       label: Text(t.importSubscription),
                     ),
                   ],

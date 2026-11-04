@@ -110,7 +110,7 @@ void main() {
     });
 
     /// 假的内核测速入口：回应 CONNECT 后，第一次 HEAD 很慢（模拟握手），第二次很快
-    Future<(ServerSocket, List<String>)> fakeProxy({bool closeAfterFirst = false, String connect = '200 OK'}) async {
+    Future<(ServerSocket, List<String>)> fakeProxy({bool closeAfterFirst = false, String connect = '200 OK', String? dropHost}) async {
       final seen = <String>[];
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       server.listen((c) {
@@ -120,6 +120,10 @@ void main() {
           seen.add(text);
           if (text.startsWith('CONNECT')) {
             c.write('HTTP/1.1 $connect\r\n\r\n');
+            return;
+          }
+          if (dropHost != null && text.contains('Host: $dropHost')) {
+            await c.close(); // 模拟这个地址走不通：连接被断开
             return;
           }
           heads++;
@@ -132,7 +136,8 @@ void main() {
       return (server, seen);
     }
 
-    DelayProbe probe(ServerSocket s) => DelayProbe(port: s.port, password: 'pw', users: {'a': 'n0'});
+    DelayProbe probe(ServerSocket s, {void Function(String)? log}) =>
+        DelayProbe(port: s.port, password: 'pw', users: {'a': 'n0'}, log: log);
 
     test('只计第二次请求的耗时，并带上节点对应的用户名', () async {
       final (s, seen) = await fakeProxy();
@@ -148,6 +153,17 @@ void main() {
       final ms = await probe(s).measure('a');
       await s.close();
       expect(ms, greaterThanOrEqualTo(290));
+    });
+
+    test('主测速地址走不通时换备用地址，并记录原因', () async {
+      final (s, seen) = await fakeProxy(dropHost: 'cp.cloudflare.com');
+      final logs = <String>[];
+      final ms = await probe(s, log: logs.add).measure('a');
+      await s.close();
+      expect(ms, inInclusiveRange(1, 200));
+      expect(seen.any((t) => t.contains('CONNECT www.gstatic.com:80')), true);
+      expect(logs.first, contains('cp.cloudflare.com 失败'));
+      expect(logs.last, contains('www.gstatic.com 成功'));
     });
 
     test('入口拒绝、未知节点、超时都返回 -1', () async {

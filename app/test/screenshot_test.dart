@@ -11,7 +11,9 @@ import 'package:koyun_vpn/models/node.dart';
 import 'package:koyun_vpn/services/ip_info.dart';
 import 'package:koyun_vpn/services/session.dart';
 import 'package:koyun_vpn/services/storage.dart';
+import 'package:koyun_vpn/app_config.dart';
 import 'package:koyun_vpn/ui/pages/home_shell.dart';
+import 'package:koyun_vpn/ui/pages/import_page.dart';
 import 'package:koyun_vpn/ui/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -103,6 +105,23 @@ Future<void> _loadFonts() async {
 
 void main() {
   setUpAll(_loadFonts);
+  testWidgets('截图 导入本地文件', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    AppConfig.bootConvert = 'https://convert.example.com';
+    addTearDown(() => AppConfig.bootConvert = '');
+    final (s, c) = await _services();
+    await tester.pumpWidget(RepaintBoundary(child: _app(s, c)));
+    await tester.pump(const Duration(milliseconds: 300));
+    Navigator.of(tester.element(find.byType(HomeShell)))
+        .push(MaterialPageRoute(builder: (_) => const ImportPage()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await expectLater(find.byType(RepaintBoundary).first, matchesGoldenFile('shots/import.png'));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+  });
   for (final page in ['home', 'nodes', 'profile']) {
     testWidgets('截图 $page', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
       tester.view.physicalSize = const Size(900, 600);

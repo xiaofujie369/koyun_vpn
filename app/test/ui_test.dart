@@ -12,7 +12,9 @@ import 'package:koyun_vpn/models/node.dart';
 import 'package:koyun_vpn/services/ip_info.dart';
 import 'package:koyun_vpn/services/session.dart';
 import 'package:koyun_vpn/services/storage.dart';
+import 'package:koyun_vpn/app_config.dart';
 import 'package:koyun_vpn/ui/pages/home_shell.dart';
+import 'package:koyun_vpn/ui/pages/import_page.dart';
 import 'package:koyun_vpn/services/updater.dart';
 import 'package:koyun_vpn/ui/theme.dart';
 import 'package:koyun_vpn/ui/widgets/update_dialog.dart';
@@ -97,6 +99,49 @@ class _FakeCore extends CoreService {
 }
 
 void main() {
+  group('导入本地文件', () {
+    const file = '''
+{"koyun":{"format":1,"created_at":1,"upload":1,"download":2,"total":30,"expire":40},
+ "outbounds":[{"type":"anytls","tag":"节点A","server":"1.2.3.4","server_port":443,"password":"x"}]}''';
+
+    test('转换网站的文件：导入节点和流量信息，切换为不可联网刷新的本地模式', () async {
+      final (s, _) = await _services();
+      expect(await s.importLocal(file), RefreshResult.ok);
+      expect(s.mode, AccountMode.local);
+      expect(s.isFileImport, isTrue);
+      expect(s.nodes.map((n) => n.tag), ['节点A']);
+      expect(s.subInfo?.total, 30);
+      expect(s.subInfo?.expire, 40);
+    });
+
+    test('内容不完整、不是配置或订阅链接：提示没有节点，原有节点不变', () async {
+      final (s, _) = await _services();
+      final before = s.nodes.length;
+      for (final bad in ['{"outbounds":[', '{"outbounds":{}}', 'proxies: []', 'https://example.com/s/abc']) {
+        expect(await s.importLocal(bad), RefreshResult.empty, reason: bad);
+      }
+      expect(s.nodes.length, before);
+      expect(s.mode, AccountMode.xboard);
+    });
+
+    testWidgets('粘贴订阅链接：提示先去转换网站，不会导入', (tester) async {
+      final (s, c) = await _services();
+      await tester.pumpWidget(_app(s, c));
+      await tester.pump(const Duration(milliseconds: 500));
+      Navigator.of(tester.element(find.byType(HomeShell)))
+          .push(MaterialPageRoute(builder: (_) => const ImportPage()));
+      await tester.pump(); // 页面路由第一帧是隐藏的
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.enterText(find.byType(TextField), 'https://example.com/s/abc');
+      await tester.tap(find.text('导入并使用'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('这里不能导入订阅链接，请先到转换网站转换成文件'), findsOneWidget);
+      expect(s.mode, AccountMode.xboard);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
+
   testWidgets('点击延迟：触控板轻点（手指微动 6 像素）也能触发单独测速，且不会误选节点', (tester) async {
     tester.view.physicalSize = const Size(960, 640);
     tester.view.devicePixelRatio = 1;
@@ -167,6 +212,8 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final (s, c) = await _services();
+      AppConfig.bootConvert = 'https://convert.example.com';
+      addTearDown(() => AppConfig.bootConvert = '');
       // 出错时打印完整信息（哪个文件哪一行的控件溢出）
       final prev = FlutterError.onError;
       FlutterError.onError = (d) {
@@ -184,6 +231,17 @@ void main() {
         final e = tester.takeException();
         expect(e, isNull, reason: '页面 $key 出现布局错误：${e is FlutterError ? e.toStringDeep() : e}');
       }
+      // 导入本地文件页
+      Navigator.of(tester.element(find.byType(HomeShell)))
+          .push(MaterialPageRoute(builder: (_) => const ImportPage()));
+      await tester.pump(); // 页面路由第一帧是隐藏的
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('拖拽文件到这里，或点击选择文件'), findsOneWidget);
+      expect(find.text('打开转换网站'), findsOneWidget);
+      final importError = tester.takeException();
+      expect(importError, isNull, reason: '导入页出现布局错误：$importError');
+      Navigator.of(tester.element(find.byType(ImportPage))).pop();
+      await tester.pump(const Duration(milliseconds: 500));
       // 更新对话框
       Updater.instance.available = UpdateInfo(version: '9.9.9', notes: '修复若干问题\n界面优化', pageUrl: 'https://example.com');
       showUpdateDialog(tester.element(find.byType(HomeShell)));

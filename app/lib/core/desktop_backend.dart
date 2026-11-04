@@ -44,6 +44,9 @@ class DesktopBackend extends CoreBackend {
   }
 
   @override
+  void addLog(String line) => _addLog(line);
+
+  @override
   List<String> get recentLogs => List.unmodifiable(_logs);
 
   @override

@@ -7,6 +7,7 @@ import '../../services/ip_info.dart';
 import '../../services/session.dart';
 import '../theme.dart';
 import '../util.dart';
+import 'import_page.dart';
 
 class NodesPage extends StatefulWidget {
   const NodesPage({super.key});
@@ -21,6 +22,11 @@ class _NodesPageState extends State<NodesPage> {
   Future<void> _refresh() async {
     final s = context.read<Session>();
     final t = context.t;
+    if (s.isFileImport) {
+      // 文件导入的节点不能联网刷新，直接去重新导入
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImportPage()));
+      return;
+    }
     final r = await s.refresh();
     if (!mounted) return;
     toast(context, switch (r) {
