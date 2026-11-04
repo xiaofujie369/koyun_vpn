@@ -9,10 +9,12 @@ import 'package:provider/provider.dart';
 
 import '../../app_config.dart';
 import '../../services/session.dart';
+import '../../services/storage.dart';
 import '../theme.dart';
 import '../util.dart';
 
-/// 导入本地文件：把转换网站生成的文件拖进来、选择文件，或粘贴文件内容。
+/// 导入：拖入或选择转换好的文件，粘贴文件内容、订阅链接或节点链接，
+/// 也可以切回上次保存的订阅。
 class ImportPage extends StatefulWidget {
   const ImportPage({super.key});
   @override
@@ -63,17 +65,19 @@ class _ImportPageState extends State<ImportPage> {
     final t = context.t;
     final input = text.trim();
     if (input.isEmpty) return toast(context, t.importHint);
-    if (input.startsWith('http://') || input.startsWith('https://')) {
-      return toast(context, t.importLinkHint);
-    }
     setState(() => _loading = true);
     final r = await context.read<Session>().importLocal(input);
     if (!mounted) return;
     setState(() => _loading = false);
-    if (r == RefreshResult.ok) {
-      Navigator.of(context).popUntil((r) => r.isFirst);
-    } else {
-      toast(context, t.importNoNodes);
+    switch (r) {
+      case RefreshResult.ok:
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      case RefreshResult.unavailable:
+        toast(context, t.subUnavailable);
+      case RefreshResult.empty:
+        toast(context, t.importNoNodes);
+      default:
+        toast(context, t.importNetworkFail);
     }
   }
 
@@ -81,6 +85,7 @@ class _ImportPageState extends State<ImportPage> {
   Widget build(BuildContext context) {
     final t = context.t;
     final desktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final session = context.watch<Session>();
     final highlight = _dragging ? KColors.lavender : KColors.border;
     return Scaffold(
       appBar: AppBar(title: Text(t.importSubscription)),
@@ -98,6 +103,28 @@ class _ImportPageState extends State<ImportPage> {
                         style: const TextStyle(color: KColors.sub, height: 1.5))),
               ]),
             ),
+            if (session.mode == AccountMode.none && session.backupNodeCount > 0) ...[
+              const SizedBox(height: 12),
+              KCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(t.importBackupTitle(session.backupNodeCount),
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.end, children: [
+                    TextButton(onPressed: session.clearBackup, child: Text(t.importBackupClear)),
+                    FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                      onPressed: () async {
+                        final nav = Navigator.of(context);
+                        await session.useBackup();
+                        nav.popUntil((r) => r.isFirst);
+                      },
+                      child: Text(t.importBackupUse),
+                    ),
+                  ]),
+                ]),
+              ),
+            ],
             if (AppConfig.bootConvert.isNotEmpty) ...[
               const SizedBox(height: 8),
               Align(

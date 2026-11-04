@@ -112,6 +112,10 @@ void main() {
     AppConfig.bootConvert = 'https://convert.example.com';
     addTearDown(() => AppConfig.bootConvert = '');
     final (s, c) = await _services();
+    await tester.runAsync(() async {
+      await s.importLocal('{"outbounds":[{"type":"anytls","tag":"A","server":"1.2.3.4","server_port":443,"password":"x"}]}');
+      await s.logout();
+    });
     await tester.pumpWidget(RepaintBoundary(child: _app(s, c)));
     await tester.pump(const Duration(milliseconds: 300));
     Navigator.of(tester.element(find.byType(HomeShell)))

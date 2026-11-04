@@ -21,12 +21,12 @@ Cloudflare 和浏览器会缓存 js、css、字体。改了这些文件后，要
 
 ```json
 {
-  "koyun": { "format": 1, "created_at": 0, "upload": 0, "download": 0, "total": 0, "expire": 0 },
+  "koyun": { "format": 1, "created_at": 0, "upload": 0, "download": 0, "total": 0, "expire": 0, "sub": "" },
   "outbounds": []
 }
 ```
 
-`outbounds` 是 Xboard `flag=sing-box` 输出的节点，内容原样保留。`koyun` 是 App 用来显示流量和到期时间的附加信息。
+`koyun.sub` 是 App 以后刷新用的订阅地址。`outbounds` 是 Xboard `flag=sing-box` 输出的节点，内容原样保留。`koyun` 是 App 用来显示流量和到期时间的附加信息。
 
 ## 支持的格式
 

@@ -86,7 +86,7 @@ if ($status !== 200) {
 
 $info = koyun_parse_userinfo($userinfo);
 $now = time();
-$file = koyun_build($formatKey, $body, $info, $now);
+$file = koyun_build($formatKey, $body, $info, $now, koyun_sub_url($input['link'], $path));
 if ($file === null) {
     fail(502, 'upstream');
 }

@@ -46,6 +46,10 @@ check('中文和斜杠不转义', str_contains($file['content'], '节点B/https'
 check('非 JSON 返回空', koyun_build_file('proxies: []', $info, 1) === null);
 check('缺少节点列表返回空', koyun_build_file('{"dns":{}}', $info, 1) === null);
 
+$withSub = json_decode(koyun_build_file($src, $info, 1, 'https://sub.example.com/s/abc?flag=sing-box')['content']);
+check('文件写入订阅地址', $withSub->koyun->sub === 'https://sub.example.com/s/abc?flag=sing-box');
+check('生成订阅地址', koyun_sub_url("http://SUB.example.com/s/$tok?x=1", "/s/$tok") === "https://sub.example.com/s/$tok?flag=sing-box");
+check('token 形式订阅地址', koyun_sub_url('https://sub.example.com/x', '/api/v1/client/subscribe?token=a') === 'https://sub.example.com/api/v1/client/subscribe?token=a&flag=sing-box');
 check('格式白名单', isset(KOYUN_FORMATS['shadowrocket'], KOYUN_FORMATS['clash']) && !isset(KOYUN_FORMATS['evil']));
 
 $vmess = 'vmess://' . base64_encode(json_encode(['ps' => '套餐到期：长期有效']));

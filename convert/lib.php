@@ -44,6 +44,13 @@ function koyun_upstream_path(string $link, array $cfg): ?string
     return null;
 }
 
+/** App 以后刷新用的订阅地址：客户原来的域名，加固定路径。只在链接已通过校验后调用。 */
+function koyun_sub_url(string $link, string $path): string
+{
+    $host = strtolower((string) parse_url(trim($link), PHP_URL_HOST));
+    return 'https://' . $host . $path . (str_contains($path, '?') ? '&' : '?') . 'flag=sing-box';
+}
+
 /** 解析 subscription-userinfo 响应头 */
 function koyun_parse_userinfo(?string $header): array
 {
@@ -63,7 +70,7 @@ function koyun_parse_userinfo(?string $header): array
  * 节点内容原样保留（用对象解码，空的 {} 不会变成 []，否则内核会报错）。
  * 返回 ['content' => 文件文本, 'count' => 节点数]；不是合法订阅返回 null。
  */
-function koyun_build_file(string $body, array $info, int $now): ?array
+function koyun_build_file(string $body, array $info, int $now, string $subUrl = ''): ?array
 {
     $doc = json_decode($body);
     if (!is_object($doc) || !isset($doc->outbounds) || !is_array($doc->outbounds)) {
@@ -80,7 +87,11 @@ function koyun_build_file(string $body, array $info, int $now): ?array
         }
         $nodes[] = $o;
     }
-    $file = ['koyun' => ['format' => 1, 'created_at' => $now] + $info, 'outbounds' => $nodes];
+    $meta = ['format' => 1, 'created_at' => $now] + $info;
+    if ($subUrl !== '') {
+        $meta['sub'] = $subUrl;
+    }
+    $file = ['koyun' => $meta, 'outbounds' => $nodes];
     return [
         'content' => json_encode($file, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
         'count' => count($nodes),
@@ -132,12 +143,12 @@ function koyun_build_clash(string $body): ?array
 }
 
 /** 按格式生成文件内容；不是合法订阅返回 null */
-function koyun_build(string $format, string $body, array $info, int $now): ?array
+function koyun_build(string $format, string $body, array $info, int $now, string $subUrl = ''): ?array
 {
     return match ($format) {
         'shadowrocket' => koyun_build_links($body),
         'clash' => koyun_build_clash($body),
-        default => koyun_build_file($body, $info, $now),
+        default => koyun_build_file($body, $info, $now, $subUrl),
     };
 }
 

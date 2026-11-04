@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../api/xboard_api.dart';
 import '../app_config.dart';
 import '../models/node.dart';
+import 'net_route.dart';
 import 'storage.dart';
 import 'sub_parser.dart';
 
@@ -18,7 +19,9 @@ enum RefreshResult { ok, networkFail, unauthorized, unavailable, empty, error }
 /// * 首次：登录成功 → 保存凭证 → 拉订阅。
 /// * 之后每次打开：先用本地缓存的节点立即显示（离线也能连），后台自动刷新订阅；
 ///   手动刷新随时可点。
-/// * 登录失败 / 接口全部不通：可导入转换网站生成的本地文件，不依赖面板接口。
+/// * 登录失败 / 接口全部不通：可导入文件或订阅链接。连接后再登录账号时不断线，
+///   登录请求走当前节点，所以被屏蔽也能切回账号。
+/// * 上次可用的节点和订阅地址一直保留，登录不上时可以切回来用。
 class Session extends ChangeNotifier {
   Session(this.storage, this.api);
 
@@ -44,10 +47,13 @@ class Session extends ChangeNotifier {
   bool get loggedIn => mode != AccountMode.none;
 
   Timer? _timer;
+  Map<String, dynamic>? _backup;
+  bool _keepNodesIfUnavailable = false;
 
   Future<void> init() async {
     mode = storage.mode;
     if (mode == AccountMode.xboard && storage.authData == null) mode = AccountMode.none;
+    _backup = await storage.loadLocalBackup();
     final cache = await storage.loadNodeCache();
     if (cache != null) {
       nodes = ((cache['nodes'] as List?) ?? [])
@@ -111,42 +117,88 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> _onAuthed(String auth, String email) async {
+    final wasLocal = mode == AccountMode.local;
     await storage.setAuthData(auth);
     await storage.setLastEmail(email.trim());
-    await storage.setLocalSubUrl(null);
     mode = AccountMode.xboard;
     await storage.setMode(mode);
     notifyListeners();
-    await refresh();
+    _keepNodesIfUnavailable = wasLocal;
+    final r = await refresh();
+    _keepNodesIfUnavailable = false;
+    if (wasLocal && r == RefreshResult.unavailable) {
+      // 账号套餐不可用：继续用本地节点，否则客户连续费页面都打不开
+      await _enterLocal();
+    }
   }
 
-  /// 通过文件或粘贴内容导入的节点，不能联网刷新（旧版导入链接的客户仍可刷新）
+  /// 通过文件或粘贴内容导入、没有订阅地址的节点，不能联网刷新
   bool get isFileImport => mode == AccountMode.local && storage.localSubUrl == null;
 
-  /// 导入转换网站生成的文件内容（也兼容节点分享链接 / sing-box JSON）
+  /// 导入文件内容、订阅链接、节点分享链接或 sing-box JSON
   Future<RefreshResult> importLocal(String input) async {
     final text = input.trim();
-    final List<ProxyNode> parsed;
-    try {
-      parsed = SubParser.parse(text);
-    } catch (_) {
-      return RefreshResult.empty; // 内容不完整或不是合法 JSON
+    if (text.startsWith('http://') || text.startsWith('https://')) {
+      final oldInfo = subInfo;
+      subInfo = null;
+      final r = await _fetchSub(text);
+      if (r.$1 != RefreshResult.ok) {
+        subInfo = oldInfo;
+        return r.$1;
+      }
+      await storage.setLocalSubUrl(text);
+    } else {
+      final List<ProxyNode> parsed;
+      try {
+        parsed = SubParser.parse(text);
+      } catch (_) {
+        return RefreshResult.empty; // 内容不完整或不是合法 JSON
+      }
+      if (parsed.isEmpty) return RefreshResult.empty;
+      nodes = parsed;
+      subInfo = SubParser.parseInfo(text);
+      await storage.setLocalSubUrl(SubParser.parseSubUrl(text));
     }
-    if (parsed.isEmpty) return RefreshResult.empty;
-    nodes = parsed;
-    subInfo = SubParser.parseInfo(text);
-    await storage.setLocalSubUrl(null);
+    lastResult = null;
+    await _enterLocal();
+    return RefreshResult.ok;
+  }
+
+  Future<void> _enterLocal() async {
     await storage.setAuthData(null);
     user = null;
     subscribe = null;
     mode = AccountMode.local;
     await storage.setMode(mode);
     await _saveCache();
-    lastResult = RefreshResult.ok;
+    if (lastResult != RefreshResult.unavailable) lastResult = RefreshResult.ok;
     lastRefreshAt = DateTime.now();
     await storage.setLastRefresh(lastRefreshAt!.millisecondsSinceEpoch);
     notifyListeners();
-    return RefreshResult.ok;
+  }
+
+  // ---------------- 备用订阅 ----------------
+
+  int get backupNodeCount => (_backup?['nodes'] as List?)?.length ?? 0;
+
+  /// 切回保存的节点和订阅地址，能联网时顺便更新
+  Future<void> useBackup() async {
+    final b = _backup;
+    if (b == null) return;
+    nodes = ((b['nodes'] as List?) ?? [])
+        .map((e) => ProxyNode.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    subInfo = b['sub_info'] is Map ? SubInfo.fromJson(Map<String, dynamic>.from(b['sub_info'])) : null;
+    await storage.setLocalSubUrl(b['url'] as String?);
+    lastResult = null;
+    await _enterLocal();
+    if (storage.localSubUrl != null) unawaited(refresh());
+  }
+
+  Future<void> clearBackup() async {
+    _backup = null;
+    await storage.clearLocalBackup();
+    notifyListeners();
   }
 
   Future<void> logout() async {
@@ -242,7 +294,7 @@ class Session extends ChangeNotifier {
       result = r.$1;
       if (result == RefreshResult.ok || result == RefreshResult.unavailable) break;
     }
-    if (result == RefreshResult.unavailable) {
+    if (result == RefreshResult.unavailable && !_keepNodesIfUnavailable) {
       nodes = [];
     }
     if (result == RefreshResult.ok || result == RefreshResult.unavailable) {
@@ -273,7 +325,8 @@ class Session extends ChangeNotifier {
     responseType: ResponseType.plain,
     validateStatus: (_) => true,
     headers: {'User-Agent': AppConfig.subscribeUserAgent},
-  ));
+  ))
+    ..httpClientAdapter = RoutedAdapter();
 
   Future<(RefreshResult, String?)> _fetchSub(String url) async {
     Response<String> res;
@@ -292,7 +345,12 @@ class Session extends ChangeNotifier {
       lastError = 'HTTP $code';
       return (RefreshResult.networkFail, null);
     }
-    final parsed = SubParser.parse(res.data!);
+    final List<ProxyNode> parsed;
+    try {
+      parsed = SubParser.parse(res.data!);
+    } catch (_) {
+      return (RefreshResult.empty, null);
+    }
     final info = SubInfo.parseHeader(res.headers.value('subscription-userinfo'));
     if (info != null) subInfo = info;
     if (parsed.isEmpty) return (RefreshResult.empty, null);
@@ -300,7 +358,20 @@ class Session extends ChangeNotifier {
     return (RefreshResult.ok, null);
   }
 
+  Future<void> _saveBackup() async {
+    final url = mode == AccountMode.local
+        ? storage.localSubUrl
+        : (storage.subscribeUrl == null ? null : _withFlag(storage.subscribeUrl!));
+    _backup = {
+      if (url != null) 'url': url,
+      'nodes': nodes.map((n) => n.toJson()).toList(),
+      if (subInfo != null) 'sub_info': subInfo!.toJson(),
+    };
+    await storage.saveLocalBackup(_backup!);
+  }
+
   Future<void> _saveCache() async {
+    if (nodes.isNotEmpty) await _saveBackup();
     await storage.saveNodeCache({
       'nodes': nodes.map((n) => n.toJson()).toList(),
       if (subInfo != null) 'sub_info': subInfo!.toJson(),

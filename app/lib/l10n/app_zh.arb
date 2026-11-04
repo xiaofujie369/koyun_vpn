@@ -13,12 +13,12 @@
  "loginButton": "立即登录",
  "newUser": "新用户？",
  "createAccount": "创建新账户",
- "importSubscription": "导入本地文件",
+ "importSubscription": "导入文件或订阅链接",
  "invalidEmail": "邮箱格式不正确",
  "loginFailed": "登录失败",
- "loginFailedImportHint": "如果您有转换好的订阅文件，也可以切换到「导入本地文件」直接使用。",
+ "loginFailedImportHint": "您也可以切换到「导入文件或订阅链接」，连接后再登录账号。",
  "networkErrorTitle": "无法连接服务器",
- "networkErrorBody": "当前网络无法访问账号服务器。您可以稍后重试，或切换到「导入本地文件」，用转换网站生成的文件继续使用。",
+ "networkErrorBody": "当前网络无法访问账号服务器。您可以稍后重试，或切换到「导入文件或订阅链接」，连接后再登录账号。",
  "retry": "重试",
  "switchToImport": "切换到导入文件",
  "linkCopied": "链接已复制",
@@ -45,8 +45,8 @@
  "backToLogin": "返回登录页面",
  "resetPassword": "重置密码",
  "passwordResetDone": "密码已重置，请重新登录",
- "importDesc": "账号无法登录或订阅被屏蔽时：先在转换网站把订阅链接转换成文件，再导入到这里。节点变化后需要重新转换导入。",
- "importHint": "或粘贴转换网站复制的内容",
+ "importDesc": "账号无法登录或订阅被屏蔽时：导入转换好的文件或订阅链接，连接后可随时再登录账号。",
+ "importHint": "或粘贴订阅链接、节点链接、转换网站复制的内容",
  "pasteFromClipboard": "从剪贴板粘贴",
  "importButton": "导入并使用",
  "importNoNodes": "没有识别到可用节点",
@@ -55,7 +55,10 @@
  "importPickTitle": "点击选择文件",
  "importDropHint": "支持转换网站生成的 .json 文件",
  "importOpenConverter": "打开转换网站",
- "importLinkHint": "这里不能导入订阅链接，请先到转换网站转换成文件",
+ "importNetworkFail": "订阅下载失败。如果链接被屏蔽，请到转换网站转换成文件再导入",
+ "importBackupUse": "使用备用订阅",
+ "importBackupClear": "删除",
+ "loginNoRoute": "连不上账号服务器。请先连接节点，或换一个节点后重试。当前节点不受影响。",
  "importAgain": "重新导入文件",
  "subUnavailable": "套餐已到期、流量已用完或账号不可用，请续费后刷新",
  "sessionExpired": "登录已过期，请重新登录",
@@ -181,7 +184,7 @@
  "otherRegion": "其他",
  "logout": "退出登录",
  "switchToAccount": "切换为账号登录",
- "logoutConfirm": "确定要退出吗？退出后将断开连接并清除本机保存的节点。",
+ "logoutConfirm": "确定要退出吗？退出后将断开连接。上次的节点和订阅地址会保留作备用，可在「导入文件或订阅链接」页面删除。",
  "noPlan": "暂无套餐",
  "expireDate": "到期时间",
  "usedTraffic": "已用流量",
@@ -236,6 +239,14 @@
  },
  "daysAgo": "{n} 天前",
  "@daysAgo": {
+  "placeholders": {
+   "n": {
+    "type": "int"
+   }
+  }
+ },
+ "importBackupTitle": "已保存上次的订阅，共 {n} 个节点",
+ "@importBackupTitle": {
   "placeholders": {
    "n": {
     "type": "int"

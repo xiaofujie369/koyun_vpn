@@ -10,6 +10,8 @@ import 'package:flutter/services.dart';
 import '../app_config.dart';
 import '../models/node.dart';
 import '../services/reporter.dart';
+import '../services/bootstrap.dart';
+import '../services/net_route.dart';
 import '../services/session.dart';
 import '../services/storage.dart';
 import 'clash_api.dart';
@@ -181,6 +183,7 @@ class CoreService extends ChangeNotifier {
         testSecret: testSecret,
       ));
       await _stopWatchers();
+      NetRoute.proxy = null;
       await backend.start(jsonEncode(cfg), tun: tun, mixedPort: mixedPort);
       _api = ClashApi(clashPort, secret);
       _probe = DelayProbe(
@@ -206,6 +209,9 @@ class CoreService extends ChangeNotifier {
         throw CoreStartException(logs.isEmpty ? 'core not responding' : logs.last);
       }
       this.mixedPort = isMobile ? null : mixedPort;
+      NetRoute.proxy = '${ConfigBuilder.appUser}:$testSecret@127.0.0.1:$testPort';
+      // 启动时被屏蔽读不到配置的话，连上后再读一次
+      unawaited(Bootstrap.instance.refresh());
       status = CoreStatus.running;
       if (!wasRunning) connectedAt = DateTime.now();
       Reporter.instance.event('connect_ok', {
@@ -262,6 +268,7 @@ class CoreService extends ChangeNotifier {
   void _onStopped() {
     status = CoreStatus.stopped;
     mixedPort = null;
+    NetRoute.proxy = null;
     upSpeed = downSpeed = 0;
     connectedAt = null;
     _stopWatchers();

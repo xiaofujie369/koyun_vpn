@@ -5,6 +5,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:dio/dio.dart';
 
 import '../app_config.dart';
+import 'net_route.dart';
 import 'storage.dart';
 
 /// 启动引导配置（放在 Cloudflare Pages 仓库 koyunoss 的 boot.json）。
@@ -34,7 +35,8 @@ class Bootstrap {
     connectTimeout: const Duration(seconds: 6),
     receiveTimeout: const Duration(seconds: 6),
     responseType: ResponseType.plain,
-  ));
+  ))
+    ..httpClientAdapter = RoutedAdapter();
 
   /// 读取本机缓存（很快，不联网）
   Future<void> init(Storage storage) async {

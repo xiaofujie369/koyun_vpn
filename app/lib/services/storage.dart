@@ -97,6 +97,28 @@ class Storage {
     if (await _nodesFile.exists()) await _nodesFile.delete();
   }
 
+  /// 备用订阅：上次可用的节点和订阅地址。退出账号也保留，登录不上时可以切回来用。
+  File get _backupFile => File('${dataDir.path}/local_backup.json');
+
+  Future<Map<String, dynamic>?> loadLocalBackup() async {
+    try {
+      if (!await _backupFile.exists()) return null;
+      return jsonDecode(await _backupFile.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveLocalBackup(Map<String, dynamic> v) async {
+    final tmp = File('${_backupFile.path}.tmp');
+    await tmp.writeAsString(jsonEncode(v), flush: true);
+    await tmp.rename(_backupFile.path);
+  }
+
+  Future<void> clearLocalBackup() async {
+    if (await _backupFile.exists()) await _backupFile.delete();
+  }
+
   // ---- 设置 ----
   RouteMode get routeMode =>
       RouteMode.values.firstWhere((m) => m.name == _p.getString('route_mode'),

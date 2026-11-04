@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../app_config.dart';
 import '../services/bootstrap.dart';
+import '../services/net_route.dart';
 import '../services/storage.dart';
 
 /// 接口错误分类：界面根据类型给出不同提示。
@@ -50,7 +51,8 @@ class XboardApi {
       responseType: ResponseType.json,
       validateStatus: (_) => true,
       headers: {'User-Agent': AppConfig.apiUserAgent},
-    ));
+    ))
+      ..httpClientAdapter = RoutedAdapter();
   }
 
   final Storage _storage;

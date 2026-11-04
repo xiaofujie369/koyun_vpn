@@ -55,6 +55,9 @@ class CoreOptions {
 /// * 分流规则集打包在 App 内（本地 .srs 文件），首次启动不依赖 GitHub，国内也能秒开。
 class ConfigBuilder {
   /// 节点 tag -> 测速入口用户名
+  /// App 自己登录、刷新订阅用的账号，跟随当前选择的节点
+  static const appUser = 'app';
+
   static Map<String, String> testUsers(List<ProxyNode> nodes) =>
       {for (var i = 0; i < nodes.length; i++) nodes[i].tag: 'n$i'};
 
@@ -102,6 +105,7 @@ class ConfigBuilder {
         'listen_port': o.testPort,
         'users': [
           for (final u in testUsers.values) {'username': u, 'password': o.testSecret},
+          if (!o.testerOnly) {'username': appUser, 'password': o.testSecret},
         ],
       });
     }
@@ -158,6 +162,8 @@ class ConfigBuilder {
         'rules': [
           for (final e in testUsers.entries)
             {'inbound': ['test-in'], 'auth_user': [e.value], 'outbound': e.key},
+          if (o.testPort != null && !o.testerOnly)
+            {'inbound': ['test-in'], 'auth_user': [appUser], 'outbound': 'proxy'},
           {'action': 'sniff'},
           {'protocol': 'dns', 'action': 'hijack-dns'},
           {'ip_is_private': true, 'outbound': 'direct'},

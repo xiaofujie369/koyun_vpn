@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../api/xboard_api.dart';
 import '../../services/session.dart';
+import '../../services/storage.dart';
 import '../theme.dart';
 import '../util.dart';
 import 'forgot_page.dart';
@@ -10,7 +11,10 @@ import 'import_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.message});
+  const LoginPage({super.key, this.message, this.keepConnection = false});
+
+  /// 从本地模式进入：保留当前节点和连接，登录成功后才换成账号的节点
+  final bool keepConnection;
 
   /// 进入登录页时要提示的信息（如"登录已过期"）
   final String? message;
@@ -42,11 +46,20 @@ class _LoginPageState extends State<LoginPage> {
     if (_pwd.text.isEmpty) return toast(context, t.passwordHint);
     setState(() => _loading = true);
     try {
-      await context.read<Session>().login(email, _pwd.text);
+      final s = context.read<Session>();
+      await s.login(email, _pwd.text);
+      if (!mounted || !widget.keepConnection) return;
+      if (s.mode == AccountMode.xboard) {
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      } else {
+        toast(context, t.subUnavailable);
+      }
     } on ApiError catch (e) {
       _failCount++;
       if (!mounted) return;
-      if (e.isNetwork) {
+      if (widget.keepConnection) {
+        toast(context, e.isNetwork ? t.loginNoRoute : e.message);
+      } else if (e.isNetwork) {
         await _offerImport(t.networkErrorTitle, t.networkErrorBody);
       } else if (_failCount >= 2) {
         await _offerImport(t.loginFailed, '${e.message}\n\n${t.loginFailedImportHint}');
@@ -87,6 +100,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final t = context.t;
     return Scaffold(
+      appBar: widget.keepConnection ? AppBar() : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -171,13 +185,15 @@ class _LoginPageState extends State<LoginPage> {
                           .push(MaterialPageRoute(builder: (_) => const RegisterPage())),
                       child: Text(t.createAccount),
                     ),
-                    const SizedBox(height: 18),
-                    TextButton.icon(
-                      onPressed: () => Navigator.of(context)
-                          .push(MaterialPageRoute(builder: (_) => const ImportPage())),
-                      icon: const Icon(Icons.upload_file_rounded, size: 18),
-                      label: Text(t.importSubscription),
-                    ),
+                    if (!widget.keepConnection) ...[
+                      const SizedBox(height: 18),
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context)
+                            .push(MaterialPageRoute(builder: (_) => const ImportPage())),
+                        icon: const Icon(Icons.upload_file_rounded, size: 18),
+                        label: Text(t.importSubscription),
+                      ),
+                    ],
                   ],
                 ),
               ),

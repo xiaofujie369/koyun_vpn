@@ -91,14 +91,14 @@ void main() {
       final cfg = ConfigBuilder.build(opts());
       final inbound = (cfg['inbounds'] as List).cast<Map>().firstWhere((i) => i['tag'] == 'test-in');
       expect(inbound['listen'], '127.0.0.1');
-      expect((inbound['users'] as List).length, nodes.length);
+      expect((inbound['users'] as List).length, nodes.length + 1); // 多一个 App 自己用的账号
       final rules = (cfg['route'] as Map)['rules'] as List;
       expect(rules.first, {
         'inbound': ['test-in'],
         'auth_user': ['n0'],
         'outbound': nodes.first.tag,
       });
-      expect(rules[nodes.length], {'action': 'sniff'});
+      expect(rules[nodes.length + 1], {'action': 'sniff'});
     });
 
     test('临时测速内核没有自动选择组', () {

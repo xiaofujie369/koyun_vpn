@@ -72,6 +72,18 @@ class SubParser {
     }
   }
 
+  /// 读取转换网站写在文件里的订阅地址，只接受 https
+  static String? parseSubUrl(String body) {
+    final text = body.trim();
+    if (!text.startsWith('{')) return null;
+    try {
+      final url = ((jsonDecode(text) as Map)['koyun'] as Map?)?['sub'];
+      return url is String && url.startsWith('https://') ? url : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 我们自己生成配置时使用的保留 tag
   static const _reserved = {'proxy', 'auto', 'direct', 'dns-out', 'block'};
 

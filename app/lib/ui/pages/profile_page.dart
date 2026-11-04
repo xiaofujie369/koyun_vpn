@@ -16,6 +16,7 @@ import '../widgets/feedback_dialog.dart';
 import '../widgets/update_dialog.dart';
 import 'home_shell.dart';
 import 'import_page.dart';
+import 'login_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -63,6 +64,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   toast(context, r == RefreshResult.ok ? t.refreshOk(s.nodes.length) : t.refreshNetworkFail);
                 }
               }),
+            if (!s.isFileImport)
+              _Item(Icons.upload_file_rounded, t.importSubscription,
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const ImportPage()))),
             if (!local) ...[
               _Item(Icons.receipt_long_outlined, t.orders,
                   onTap: () => openUrl(context, '${AppConfig.websiteUrl}/#/order')),
@@ -116,11 +121,20 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ]),
           const SizedBox(height: 20),
+          if (local) ...[
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LoginPage(keepConnection: true))),
+              icon: const Icon(Icons.login_rounded),
+              label: Text(t.switchToAccount),
+            ),
+            const SizedBox(height: 10),
+          ],
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(foregroundColor: KColors.danger),
             onPressed: () => _logout(context),
-            icon: Icon(local ? Icons.login_rounded : Icons.logout_rounded),
-            label: Text(local ? t.switchToAccount : t.logout),
+            icon: const Icon(Icons.logout_rounded),
+            label: Text(t.logout),
           ),
         ]),
       ),
