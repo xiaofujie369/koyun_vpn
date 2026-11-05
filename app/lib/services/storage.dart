@@ -55,13 +55,10 @@ class Storage {
   String? get preferredApiHost => _p.getString('api_host');
   Future<void> setPreferredApiHost(String v) => _p.setString('api_host', v);
 
-  /// Xboard 订阅 token / 地址（用于被墙时兜底和离线时展示）
+  /// Xboard 订阅地址（用于被墙时兜底）
   String? get subscribeUrl => _p.getString('sub_url');
   Future<void> setSubscribeUrl(String? v) =>
       v == null ? _p.remove('sub_url') : _p.setString('sub_url', v);
-  String? get subscribeToken => _p.getString('sub_token');
-  Future<void> setSubscribeToken(String? v) =>
-      v == null ? _p.remove('sub_token') : _p.setString('sub_token', v);
 
   /// 本地导入模式的订阅链接
   String? get localSubUrl => _p.getString('local_sub_url');
@@ -139,17 +136,10 @@ class Storage {
   String get localeOverride => _p.getString('locale') ?? '';
   Future<void> setLocaleOverride(String v) => _p.setString('locale', v);
 
-  /// 上次是否处于连接状态（用于异常退出后清理系统代理）
-  bool get wasConnected => _p.getBool('was_connected') ?? false;
-  Future<void> setWasConnected(bool v) => _p.setBool('was_connected', v);
-
-  int get mixedPort => _p.getInt('mixed_port') ?? 0;
-  Future<void> setMixedPort(int v) => _p.setInt('mixed_port', v);
-
   Future<void> clearAccount() async {
     await setAuthData(null);
     await setSubscribeUrl(null);
-    await setSubscribeToken(null);
+    await _p.remove('sub_token'); // 旧版本存过，不再使用
     await setLocalSubUrl(null);
     await setSelectedNode(null);
     await _p.remove('last_refresh');

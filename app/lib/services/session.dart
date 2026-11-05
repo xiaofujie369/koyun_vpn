@@ -280,7 +280,6 @@ class Session extends ChangeNotifier {
     final subUrl = subscribe?['subscribe_url'] as String?;
     final token = subscribe?['token'] as String?;
     await storage.setSubscribeUrl(subUrl);
-    await storage.setSubscribeToken(token);
 
     // 先用官方订阅域名，不通再用接口域名兜底
     final candidates = <String>[

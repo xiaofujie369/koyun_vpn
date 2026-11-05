@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../services/reporter.dart';
 import 'core_backend.dart';
 import 'sys_proxy.dart';
 
@@ -45,6 +46,16 @@ class DesktopBackend extends CoreBackend {
 
   @override
   void addLog(String line) => _addLog(line);
+
+  /// 内核输出的一行。INFO 里全是访问记录，不保留；只留错误和网络变化（排查掉线用）。
+  void _onCoreLine(String raw) {
+    final line = raw.replaceAll(RegExp(r'\x1b\[[0-9;]*m'), '');
+    final networkChange = line.contains('default interface') || line.contains('network changed');
+    if (line.contains(' INFO ') && !networkChange) return;
+    _addLog(line);
+    // 默认网卡变化时内核会断开所有连接，这是掉线的一个来源
+    if (networkChange) Reporter.instance.event('net_reset', {'line': line});
+  }
 
   @override
   List<String> get recentLogs => List.unmodifiable(_logs);
@@ -135,13 +146,19 @@ class DesktopBackend extends CoreBackend {
           workingDirectory: workDir);
       _proc = p;
       await File(_pidFile).writeAsString('${p.pid}');
-      p.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(_addLog);
-      p.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(_addLog);
+      // 允许非法字符：解码出错时不能中断日志读取，否则管道写满后内核会被卡住
+      for (final out in [p.stdout, p.stderr]) {
+        out
+            .transform(const Utf8Decoder(allowMalformed: true))
+            .transform(const LineSplitter())
+            .listen(_onCoreLine, onError: (_) {});
+      }
       unawaited(p.exitCode.then((code) {
         if (_proc == p) {
           _proc = null;
           _addLog('core exited: $code');
           if (!_stopping) {
+            Reporter.instance.event('core_exit', {'code': code, 'error': _lastError()});
             _restoreProxy();
             _status.add(CoreStatus.stopped);
           }

@@ -234,10 +234,6 @@ class IpService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshAll() async {
-    await Future.wait([refreshLocal(), refreshProxy()]);
-  }
-
   static Future<IpInfo> _fetchIpip() async {
     final dio = _dio(null);
     try {

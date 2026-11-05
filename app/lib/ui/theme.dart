@@ -23,7 +23,6 @@ class KColors {
 
   // 兼容旧名称
   static const lavender = accent;
-  static const sakura = Color(0xFFE8A3B8);
 }
 
 /// 尺寸规范（紧凑）

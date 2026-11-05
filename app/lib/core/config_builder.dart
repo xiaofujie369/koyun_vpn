@@ -11,7 +11,6 @@ class CoreOptions {
     required this.clashSecret,
     this.tun = false,
     this.mixedPort,
-    this.setSystemProxy = false,
     this.routeMode = RouteMode.rule,
     this.ipv6 = false,
     this.mobile = false,
@@ -31,7 +30,6 @@ class CoreOptions {
   final String clashSecret;
   final bool tun;
   final int? mixedPort;
-  final bool setSystemProxy;
   final RouteMode routeMode;
   final bool ipv6;
   final bool mobile;
@@ -92,7 +90,6 @@ class ConfigBuilder {
         'tag': 'mixed-in',
         'listen': '127.0.0.1',
         'listen_port': o.mixedPort,
-        if (o.setSystemProxy) 'set_system_proxy': true,
       });
     }
 

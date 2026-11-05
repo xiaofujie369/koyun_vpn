@@ -178,7 +178,7 @@ class CoreService extends ChangeNotifier {
         routeMode: storage.routeMode,
         ipv6: storage.ipv6,
         mobile: isMobile,
-        logLevel: kDebugMode ? 'info' : 'warn',
+        logLevel: kDebugMode || !isMobile ? 'info' : 'warn',
         testPort: testPort,
         testSecret: testSecret,
       ));
@@ -218,7 +218,6 @@ class CoreService extends ChangeNotifier {
         ..._connInfo(),
         'ms': DateTime.now().difference(t0).inMilliseconds,
       });
-      await storage.setWasConnected(true);
       _afterStart();
     } on CoreStartException catch (e) {
       needAdmin = e.needAdmin;
@@ -304,7 +303,6 @@ class CoreService extends ChangeNotifier {
     try {
       await backend.stop();
     } catch (_) {}
-    await storage.setWasConnected(false);
     _onStopped();
     notifyListeners();
   }
