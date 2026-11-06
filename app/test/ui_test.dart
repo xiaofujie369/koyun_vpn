@@ -200,6 +200,22 @@ void main() {
     expect(back.city, '上海');
   });
 
+  test('安卓更新按手机架构选安装包', () {
+    const all = [
+      'koyun-1.1.6-android-armeabi-v7a.apk',
+      'koyun-1.1.6-android-arm64-v8a.apk',
+      'koyun-1.1.6-android-x86_64.apk',
+      'koyun-1.1.6-windows-x64-setup.exe',
+    ];
+    expect(Updater.pickApk(all, ['arm64-v8a', 'armeabi-v7a', 'armeabi']), all[1]);
+    expect(Updater.pickApk(all, ['armeabi-v7a', 'armeabi']), all[0]);
+    expect(Updater.pickApk(all, ['x86_64', 'arm64-v8a']), all[2]);
+    // 手机架构没有对应的包、又没有通用包：不能乱选，交给发布页
+    expect(Updater.pickApk(all, ['riscv64']), isNull);
+    expect(Updater.pickApk(all, const []), isNull);
+    expect(Updater.pickApk(['a-universal.apk', ...all], ['riscv64']), 'a-universal.apk');
+  });
+
   test('版本号比较', () {
     expect(Updater.isNewer('1.0.2', '1.0.1'), isTrue);
     expect(Updater.isNewer('1.0.10', '1.0.9'), isTrue);

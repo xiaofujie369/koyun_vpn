@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -61,11 +62,19 @@ class Updater extends ChangeNotifier {
         return false;
       }
       String? asset;
-      for (final a in (j['assets'] as List? ?? const [])) {
-        final name = (a['name'] ?? '').toString().toLowerCase();
-        if (_matchesPlatform(name)) {
-          asset = a['browser_download_url'] as String?;
-          break;
+      final assets = <String, String?>{
+        for (final a in (j['assets'] as List? ?? const []))
+          (a['name'] ?? '').toString().toLowerCase(): a['browser_download_url'] as String?,
+      };
+      if (Platform.isAndroid) {
+        final name = pickApk(assets.keys, await _androidAbis());
+        asset = name == null ? null : assets[name];
+      } else {
+        for (final e in assets.entries) {
+          if (_matchesPlatform(e.key)) {
+            asset = e.value;
+            break;
+          }
         }
       }
       available = UpdateInfo(
@@ -116,8 +125,30 @@ class Updater extends ChangeNotifier {
   static bool _matchesPlatform(String name) {
     if (Platform.isWindows) return name.endsWith('-setup.exe');
     if (Platform.isMacOS) return name.endsWith('.dmg');
-    if (Platform.isAndroid) return name.endsWith('.apk');
     return false;
+  }
+
+  /// 按手机支持的架构选安装包（优先级从高到低），装错架构的包会安装失败。
+  /// 没有合适的包时返回 null，界面会打开发布页让用户自己选。
+  static String? pickApk(Iterable<String> names, List<String> abis) {
+    for (final abi in abis) {
+      for (final name in names) {
+        if (name.endsWith('-${abi.toLowerCase()}.apk')) return name;
+      }
+    }
+    for (final name in names) {
+      if (name.endsWith('-universal.apk')) return name;
+    }
+    return null;
+  }
+
+  static Future<List<String>> _androidAbis() async {
+    try {
+      final abis = await const MethodChannel('koyun/core').invokeListMethod<String>('abis');
+      return abis ?? const [];
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// 版本比较：1.0.10 > 1.0.9

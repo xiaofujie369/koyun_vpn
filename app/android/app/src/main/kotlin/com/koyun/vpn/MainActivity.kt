@@ -47,6 +47,7 @@ class MainActivity : FlutterActivity() {
                 }
                 "status" -> result.success(VpnState.status)
                 "interrupted" -> result.success(KoyunVpnService.interrupted(this))
+                "abis" -> result.success(Build.SUPPORTED_ABIS.toList())
                 else -> result.notImplemented()
             }
         }
