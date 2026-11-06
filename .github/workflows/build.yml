@@ -37,15 +37,25 @@ jobs:
           dart run flutter_launcher_icons
           flutter gen-l10n
           flutter build windows --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }} --dart-define=KOYUN_BOOT=${{ secrets.KOYUN_BOOT }} --dart-define=KOYUN_BOOT_PUB=${{ secrets.KOYUN_BOOT_PUB }} --dart-define=KOYUN_BOOT_KEY=${{ secrets.KOYUN_BOOT_KEY }}
-      - name: 打包内核
-        shell: pwsh
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      # 官方内核一切换默认网卡就断开所有连接，这里用打过补丁的内核：旧网卡还能用时保留连接
+      - name: 编译并打包内核
+        shell: bash
         run: |
-          $v = "${{ env.SING_BOX_VERSION }}"
-          Invoke-WebRequest "https://github.com/SagerNet/sing-box/releases/download/v$v/sing-box-$v-windows-amd64.zip" -OutFile sb.zip
-          Expand-Archive sb.zip -DestinationPath sb
-          $rel = "app/build/windows/x64/runner/Release"
-          Copy-Item "sb/sing-box-$v-windows-amd64/*" $rel -Exclude LICENSE
-          Get-ChildItem $rel
+          v=${{ env.SING_BOX_VERSION }}
+          git -c core.autocrlf=false clone --depth 1 -b "v$v" https://github.com/SagerNet/sing-box.git sb
+          tr -d '\r' < tools/singbox-keep-conns.patch | git -C sb apply -
+          rel="$PWD/app/build/windows/x64/runner/Release"
+          cd sb
+          CGO_ENABLED=0 go build -trimpath \
+            -tags "with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0" \
+            -ldflags "-X github.com/sagernet/sing-box/constant.Version=$v-koyun -X runtime.godebugDefault=multipathtcp=0,tlssha1=1 -checklinkname=0 -s -w -buildid=" \
+            -o "$rel/sing-box.exe" ./cmd/sing-box
+          "$rel/sing-box.exe" version
+          ls -la "$rel"
       - name: 安装包
         shell: pwsh
         run: |

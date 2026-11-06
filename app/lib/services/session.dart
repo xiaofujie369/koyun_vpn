@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -337,8 +338,11 @@ class Session extends ChangeNotifier {
     }
     final code = res.statusCode ?? 0;
     if (code == 403 || code == 401) {
-      // Xboard：套餐过期 / 流量用完 / 被封禁时订阅返回 403
-      return (RefreshResult.unavailable, null);
+      // Xboard：套餐过期 / 流量用完 / 被封禁时订阅返回 403，内容是 JSON。
+      // Cloudflare 等拦截也是 403，但内容是网页。不能当成套餐不可用，否则节点会被清空、断开连接
+      if (_isPanelJson(res.data)) return (RefreshResult.unavailable, null);
+      lastError = 'HTTP $code';
+      return (RefreshResult.networkFail, null);
     }
     if (code != 200 || res.data == null) {
       lastError = 'HTTP $code';
@@ -355,6 +359,14 @@ class Session extends ChangeNotifier {
     if (parsed.isEmpty) return (RefreshResult.empty, null);
     nodes = parsed;
     return (RefreshResult.ok, null);
+  }
+
+  static bool _isPanelJson(String? body) {
+    try {
+      return jsonDecode(body ?? '') is Map;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _saveBackup() async {

@@ -1,3 +1,5 @@
+import 'dart:io' show InternetAddress;
+
 import '../models/node.dart';
 import '../services/storage.dart';
 
@@ -49,12 +51,51 @@ class CoreOptions {
 /// * "proxy" 选择器 = [auto, 所有节点]；"auto" 为 urltest 自动选最快。
 /// * 规则 / 全局 / 直连 三种模式用 clash_mode 规则实现，
 ///   切换时调用 Clash API 即可，不需要重启内核、不断线。
-/// * 国内域名走阿里 DNS 直连，其余走 1.1.1.1 DoH 经代理，防 DNS 污染。
+/// * DNS 参考 Clash Verge：每类域名同时问多个服务器，谁先答用谁，一个服务器不通不影响上网。
+///   节点域名和国内域名直连解析；其余域名经代理解析，防 DNS 污染。
 /// * 分流规则集打包在 App 内（本地 .srs 文件），首次启动不依赖 GitHub，国内也能秒开。
 class ConfigBuilder {
   /// 节点 tag -> 测速入口用户名
   /// App 自己登录、刷新订阅用的账号，跟随当前选择的节点
   static const appUser = 'app';
+
+  /// 内核 1.14 要求写明解析节点域名的服务器，但这样只能用一个服务器。
+  /// 不写才能走下面的 DNS 规则同时问多个，因此启动电脑端内核时要带上这个环境变量。
+  /// 升级内核前要先确认这个开关还在，不在时内核会启动失败。
+  static const coreEnv = {'ENABLE_DEPRECATED_MISSING_DOMAIN_RESOLVER': 'true'};
+
+  /// 节点地址里的域名（IP 不需要解析）
+  static List<String> nodeDomains(List<ProxyNode> nodes) => {
+        for (final n in nodes)
+          if (n.server.isNotEmpty && InternetAddress.tryParse(n.server) == null) n.server
+      }.toList()
+        ..sort();
+
+  /// 同时问 [servers] 里的每个服务器，第一个正常回答的胜出。
+  /// 没有服务器正常回答时（比如域名不存在），由最后一条规则返回结果。
+  static List<Map<String, dynamic>> _race(
+    String name,
+    Map<String, dynamic> match,
+    List<String> servers, {
+    Map<String, dynamic> options = const {},
+  }) {
+    return [
+      for (var i = 0; i < servers.length; i++) ...[
+        {
+          ...match,
+          'query_type': ['A', 'AAAA'],
+          'action': 'evaluate',
+          'server': servers[i],
+          'tag': '$name-$i',
+          if (i > 0) 'speculative': true,
+          'timeout': '3s',
+          ...options,
+        },
+        {'match_response': '$name-$i', 'response_rcode': 'NOERROR', 'action': 'respond', 'race': true},
+      ],
+      {...match, 'server': servers.first, ...options},
+    ];
+  }
 
   static Map<String, String> testUsers(List<ProxyNode> nodes) =>
       {for (var i = 0; i < nodes.length; i++) nodes[i].tag: 'n$i'};
@@ -107,31 +148,60 @@ class ConfigBuilder {
       });
     }
 
-    final strategy = o.ipv6 ? 'prefer_ipv4' : 'ipv4_only';
+    // 电脑端节点域名由 DNS 规则解析；手机端内核没有 coreEnv，暂时保持单个服务器
+    final nodeDomains = o.mobile ? const <String>[] : ConfigBuilder.nodeDomains(o.nodes);
+    const direct = ['dns-direct-ali', 'dns-direct-pub', 'dns-direct'];
+    const remote = ['dns-remote', 'dns-remote-google'];
 
     return {
       'log': {'level': o.logLevel, 'timestamp': true},
       'dns': {
         'servers': [
+          {'type': 'https', 'tag': 'dns-remote', 'server': '1.1.1.1', 'detour': 'proxy'},
+          {'type': 'https', 'tag': 'dns-remote-google', 'server': '8.8.8.8', 'detour': 'proxy'},
+          {'type': 'udp', 'tag': 'dns-direct', 'server': '223.5.5.5'},
+          {'type': 'udp', 'tag': 'dns-direct-tencent', 'server': '119.29.29.29'},
           {
             'type': 'https',
-            'tag': 'dns-remote',
-            'server': '1.1.1.1',
-            'detour': 'proxy',
+            'tag': 'dns-direct-ali',
+            'server': '223.5.5.5',
+            'tls': {'server_name': 'dns.alidns.com'},
           },
-          {'type': 'udp', 'tag': 'dns-direct', 'server': '223.5.5.5'},
+          {
+            'type': 'https',
+            'tag': 'dns-direct-pub',
+            'server': '1.12.12.12',
+            'tls': {'server_name': 'doh.pub'},
+          },
+          {'type': 'https', 'tag': 'dns-node-cf', 'server': '1.1.1.1'},
+          {'type': 'https', 'tag': 'dns-node-google', 'server': '8.8.8.8'},
+          // 系统 DNS：有些网络只放行内网 DNS。TUN 模式下它会被自己劫持，不能用
+          if (!o.tun) {'type': 'local', 'tag': 'dns-system'},
         ],
         'rules': [
-          {'clash_mode': 'Direct', 'server': 'dns-direct'},
-          {'clash_mode': 'Global', 'server': 'dns-remote'},
-          {'rule_set': ['geosite-cn'], 'server': 'dns-direct'},
-          {'rule_set': ['geosite-geolocation-notcn'], 'server': 'dns-remote'},
+          if (nodeDomains.isNotEmpty)
+            ..._race('node', {'domain': nodeDomains}, [
+              'dns-direct',
+              'dns-direct-tencent',
+              'dns-direct-ali',
+              'dns-node-cf',
+              'dns-node-google',
+              if (!o.tun) 'dns-system',
+            ]),
+          // 关闭 IPv6 时不返回网站的 IPv6 地址。节点域名在上面已处理，只有 IPv6 地址的节点不受影响
+          if (!o.ipv6) {'query_type': ['AAAA'], 'action': 'predefined', 'rcode': 'NOERROR'},
+          ..._race('mode-direct', {'clash_mode': 'Direct'}, direct),
+          ..._race('mode-global', {'clash_mode': 'Global'}, remote),
+          ..._race('cn', {'rule_set': ['geosite-cn']}, direct),
+          ..._race('notcn', {'rule_set': ['geosite-geolocation-notcn']}, remote),
           // 不在任何名单里的域名（智能分流模式）：仍用防污染的远程 DNS，但告诉它"用户在中国"，
           // 国内网站会返回国内的服务器 IP，随后被 geoip-cn 判定为直连，不再绕道国外。
-          {'clash_mode': 'Rule', 'server': 'dns-remote', 'client_subnet': '114.114.114.0/24'},
+          ..._race('other', {'clash_mode': 'Rule'}, remote, options: {'client_subnet': '114.114.114.0/24'}),
         ],
         'final': 'dns-remote',
-        'strategy': strategy,
+        'strategy': 'prefer_ipv4',
+        // 缓存过期后先用旧结果、后台再更新，DNS 临时不通时不影响新连接
+        'optimistic': true,
       },
       'inbounds': inbounds,
       'outbounds': [
@@ -199,9 +269,8 @@ class ConfigBuilder {
         // 绑定默认网卡只为防止 TUN 回环。系统代理模式下交给系统路由，
         // 否则 IPv6 走的网卡和默认 IPv4 网卡不同时，IPv6 节点连不上。
         'auto_detect_interface': o.tun || o.mobile,
-        // 解析节点服务器域名用国内 DNS（节点地址本身不能走代理解析）。
-        // 不受 IPv6 开关影响：那个开关管的是访问网站，只有 IPv6 地址的节点不能因此解析失败。
-        'default_domain_resolver': {'server': 'dns-direct', 'strategy': 'prefer_ipv4'},
+        // 节点地址本身不能走代理解析。电脑端由上面的 DNS 规则处理（见 coreEnv）
+        if (o.mobile) 'default_domain_resolver': {'server': 'dns-direct', 'strategy': 'prefer_ipv4'},
       },
       'experimental': {
         'cache_file': o.testerOnly

@@ -1,0 +1,60 @@
+diff --git a/route/network.go b/route/network.go
+index 1ff6e49..e7dd981 100644
+--- a/route/network.go
++++ b/route/network.go
+@@ -44,6 +44,7 @@ type NetworkManager struct {
+ 	autoRedirectOutputMark  uint32
+ 	networkMonitor          tun.NetworkUpdateMonitor
+ 	interfaceMonitor        tun.DefaultInterfaceMonitor
++	lastDefaultInterface    *control.Interface
+ 	packageManager          tun.PackageManager
+ 	powerListener           winpowrprof.EventListener
+ 	pauseManager            pause.Manager
+@@ -565,11 +566,47 @@ func (r *NetworkManager) updateInterface(ctx context.Context, defaultInterface *
+ 		r.networkResetPending = false
+ 	}
+ 	r.interfaceUpdateAccess.Unlock()
++	// Koyun: keep live connections while the previous interface can still carry them.
++	previous := r.lastDefaultInterface
++	current := *defaultInterface
++	r.lastDefaultInterface = &current
+ 	if resetNetwork {
++		if previous != nil && interfaceStillUsable(previous) {
++			r.logger.Info("default interface changed, previous still usable, keeping connections")
++			r.router.ResetNetwork()
++			return
++		}
+ 		r.ResetNetwork(ctx)
+ 	}
+ }
+ 
++func interfaceStillUsable(previous *control.Interface) bool {
++	iface, err := net.InterfaceByIndex(previous.Index)
++	if err != nil || iface.Flags&net.FlagUp == 0 {
++		return false
++	}
++	addrs, err := iface.Addrs()
++	if err != nil {
++		return false
++	}
++	for _, addr := range addrs {
++		ipNet, isIPNet := addr.(*net.IPNet)
++		if !isIPNet {
++			continue
++		}
++		ip, ok := netip.AddrFromSlice(ipNet.IP)
++		if !ok || ip.Unmap().IsLinkLocalUnicast() {
++			continue
++		}
++		for _, prefix := range previous.Addresses {
++			if prefix.Addr() == ip.Unmap() {
++				return true
++			}
++		}
++	}
++	return false
++}
++
+ func (r *NetworkManager) notifyWindowsPowerEvent(event int) {
+ 	switch event {
+ 	case winpowrprof.EVENT_SUSPEND:

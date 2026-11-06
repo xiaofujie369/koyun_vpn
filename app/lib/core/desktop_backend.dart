@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../services/reporter.dart';
+import 'config_builder.dart';
 import 'core_backend.dart';
 import 'sys_proxy.dart';
 
@@ -143,7 +144,7 @@ class DesktopBackend extends CoreBackend {
       await _startMacRoot();
     } else {
       final p = await Process.start(binaryPath, ['run', '-c', _configPath, '-D', workDir],
-          workingDirectory: workDir);
+          workingDirectory: workDir, environment: ConfigBuilder.coreEnv);
       _proc = p;
       await File(_pidFile).writeAsString('${p.pid}');
       // 允许非法字符：解码出错时不能中断日志读取，否则管道写满后内核会被卡住
@@ -182,6 +183,7 @@ class DesktopBackend extends CoreBackend {
     final script = File('$workDir/run-root.sh');
     await script.writeAsString(r'''#!/bin/sh
 BIN="$1"; CFG="$2"; DIR="$3"; FLAG="$4"; LOG="$5"; PIDF="$6"
+export ENABLE_DEPRECATED_MISSING_DOMAIN_RESOLVER=true
 "$BIN" run -c "$CFG" -D "$DIR" > "$LOG" 2>&1 &
 P=$!
 echo $P > "$PIDF"

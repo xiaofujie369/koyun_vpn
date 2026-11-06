@@ -108,8 +108,8 @@ class AppConfig {
   /// 单个节点测速的超时时间（和 Clash Verge 默认一致）
   static const delayTimeout = Duration(seconds: 10);
 
-  /// 订阅自动刷新间隔（App 运行中时）。后台新增国家 / 节点，最晚这么久客户端就能拿到
-  static const autoRefreshInterval = Duration(hours: 1);
+  /// 订阅自动刷新间隔：登录或打开 App 时刷新一次，之后每隔这么久刷新一次
+  static const autoRefreshInterval = Duration(hours: 24);
 
   /// 本地代理端口（系统代理模式），被占用时自动顺延。
   static const defaultMixedPort = 17890;

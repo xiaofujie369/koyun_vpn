@@ -75,10 +75,26 @@ void main() {
           testerOnly: tester,
         );
 
-    test('节点域名的解析不受 IPv6 开关影响（只有 IPv6 地址的域名也能连）', () {
+    test('节点域名同时问多个服务器，且不受 IPv6 开关影响（只有 IPv6 地址的域名也能连）', () {
+      final domainNodes = SubParser.parse(sampleSingBox.replaceAll('1.2.3.4', 'node.example.com'));
       for (final ipv6 in [false, true]) {
-        final route = ConfigBuilder.build(opts(ipv6: ipv6))['route'] as Map;
-        expect(route['default_domain_resolver']['strategy'], 'prefer_ipv4');
+        final dns = ConfigBuilder.build(CoreOptions(
+          nodes: domainNodes,
+          selected: 'auto',
+          ruleSetDir: 'rules',
+          workDir: 'work',
+          clashPort: 19090,
+          clashSecret: 's',
+          ipv6: ipv6,
+        ))['dns'] as Map;
+        expect(dns['strategy'], 'prefer_ipv4');
+        final rules = (dns['rules'] as List).cast<Map>();
+        final node = rules.where((r) => '${r['tag']}'.startsWith('node-')).toList();
+        expect(node.length, greaterThan(1));
+        expect(node.first['domain'], contains('node.example.com'));
+        // 节点域名的规则排在"关闭 IPv6"规则前面
+        final noV6 = rules.indexWhere((r) => r['action'] == 'predefined');
+        if (!ipv6) expect(rules.indexOf(node.last), lessThan(noV6));
       }
     });
 

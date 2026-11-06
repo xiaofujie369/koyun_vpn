@@ -30,6 +30,7 @@ class CoreService extends ChangeNotifier {
         _onStopped();
         lastError ??= 'disconnected';
         notifyListeners();
+        _recoverCore();
       } else if (s == CoreStatus.running && status != CoreStatus.running) {
         // 移动端：从系统设置 / 快捷开关启动后，App 重新打开时同步状态
         status = CoreStatus.running;
@@ -59,6 +60,7 @@ class CoreService extends ChangeNotifier {
 
   ClashApi? _api;
   StreamSubscription? _trafficSub;
+  Timer? _trafficRetry;
   Timer? _pollTimer;
   String _lastNodesSig = '';
   bool get isMobile => Platform.isAndroid || Platform.isIOS;
@@ -84,6 +86,7 @@ class CoreService extends ChangeNotifier {
         final j = jsonDecode(await File('$_workDir/api.json').readAsString());
         _api = ClashApi(j['port'], j['secret']);
         _probe = DelayProbe.fromJson(j, log: backend.addLog);
+        _loaded = _snapshot(session.nodes);
         status = CoreStatus.running;
         connectedAt = DateTime.now();
         _afterStart();
@@ -111,20 +114,71 @@ class CoreService extends ChangeNotifier {
   String _sig(List<ProxyNode> nodes) =>
       nodes.map((n) => jsonEncode(n.outbound)).join('|').hashCode.toString();
 
-  /// 订阅刷新后节点有变化，且正在连接 → 自动热重载，客户无感
+  /// 运行中内核加载的节点（tag -> 节点配置）
+  Map<String, String> _loaded = const {};
+
+  /// 订阅已更新、但还没有加载进内核。下次切换节点或重新连接时生效
+  bool _pendingApply = false;
+
+  static Map<String, String> _snapshot(List<ProxyNode> nodes) =>
+      {for (final n in nodes) n.tag: jsonEncode(n.outbound)};
+
+  /// 这个节点的配置和内核里的不一样（新增或被修改）
+  bool _isStale(ProxyNode n) => _loaded[n.tag] != jsonEncode(n.outbound);
+
+  /// 正在使用的节点已被删除或修改，继续用会连不上
+  bool get _currentNodeChanged {
+    final tag = selected == 'auto' ? autoNow : selected;
+    if (tag == null || !_loaded.containsKey(tag)) return false;
+    return session.nodes.every((n) => n.tag != tag || _isStale(n));
+  }
+
+  /// 订阅刷新后节点有变化时的"热更新"。
+  /// sing-box 不能在运行中替换节点，重启内核会断开所有连接，所以：
+  /// 正在用的节点没变就不重启，新节点列表等下次切换节点（反正会断开连接）或重新连接时再加载。
   void _onSessionChanged() {
     final sig = _sig(session.nodes);
     if (sig == _lastNodesSig) return;
     _lastNodesSig = sig;
-    delays.clear();
+    final fresh = _snapshot(session.nodes);
+    final old = running ? _loaded : const <String, String>{};
+    if (old.isEmpty) {
+      delays.clear();
+    } else {
+      delays.removeWhere((tag, _) => fresh[tag] != old[tag]);
+    }
     _cancelTests();
     if (running && session.nodes.isNotEmpty) {
-      unawaited(connect());
+      if (_currentNodeChanged) {
+        unawaited(connect());
+      } else {
+        _pendingApply = true;
+      }
     } else if (running && session.nodes.isEmpty) {
       unawaited(disconnect());
     }
     if (!session.loggedIn && running) unawaited(disconnect());
     notifyListeners();
+  }
+
+  Timer? _recoverTimer;
+  final List<DateTime> _coreExits = [];
+
+  /// 内核意外退出时自动重连（电脑端）。5 分钟内最多 3 次，避免配置有问题时反复重启
+  void _recoverCore() {
+    if (isMobile || session.nodes.isEmpty) return;
+    final now = DateTime.now();
+    _coreExits
+      ..removeWhere((t) => now.difference(t) > const Duration(minutes: 5))
+      ..add(now);
+    if (_coreExits.length > 3) return;
+    _recoverTimer?.cancel();
+    _recoverTimer = Timer(const Duration(seconds: 2), () async {
+      if (status != CoreStatus.stopped) return;
+      Reporter.instance.event('core_recover', {'attempt': _coreExits.length});
+      await connect();
+      if (status == CoreStatus.stopped) _recoverCore();
+    });
   }
 
   static Future<int> _freePort(int from) async {
@@ -153,6 +207,7 @@ class CoreService extends ChangeNotifier {
       return;
     }
     _cancelTests();
+    _recoverTimer?.cancel();
     final wasRunning = running;
     final t0 = DateTime.now();
     status = CoreStatus.starting;
@@ -160,14 +215,17 @@ class CoreService extends ChangeNotifier {
     needAdmin = false;
     notifyListeners();
     try {
+      // 先停旧内核再选端口，否则旧内核占着端口，每次重连本地代理端口都会变
+      if (wasRunning) await backend.stop();
       final tun = isMobile || storage.tunMode;
       final clashPort = await _freePort(isMobile ? 29090 : 19090);
       final secret = _randomHex(32);
       final mixedPort = isMobile ? 0 : await _freePort(AppConfig.defaultMixedPort);
       final testPort = await _freePort(isMobile ? 29290 : 19290);
       final testSecret = _randomHex(16);
+      final nodes = [...session.nodes];
       final cfg = ConfigBuilder.build(CoreOptions(
-        nodes: session.nodes,
+        nodes: nodes,
         selected: selected,
         ruleSetDir: _ruleDir,
         workDir: _workDir,
@@ -187,7 +245,9 @@ class CoreService extends ChangeNotifier {
       await backend.start(jsonEncode(cfg), tun: tun, mixedPort: mixedPort);
       _api = ClashApi(clashPort, secret);
       _probe = DelayProbe(
-          port: testPort, password: testSecret, users: ConfigBuilder.testUsers(session.nodes), log: backend.addLog);
+          port: testPort, password: testSecret, users: ConfigBuilder.testUsers(nodes), log: backend.addLog);
+      _loaded = _snapshot(nodes);
+      _pendingApply = false;
       await File('$_workDir/api.json')
           .writeAsString(jsonEncode({'port': clashPort, 'secret': secret, ..._probe!.toJson()}));
       // 等内核就绪（最多 15 秒）
@@ -238,12 +298,7 @@ class CoreService extends ChangeNotifier {
     // 内核缓存里可能记着旧选择，以 App 为准再同步一次
     unawaited(api.select('proxy', selected).catchError((_) {}));
     unawaited(api.setMode(ConfigBuilder.clashMode(storage.routeMode)).catchError((_) {}));
-    _trafficSub?.cancel();
-    _trafficSub = api.traffic().listen((t) {
-      upSpeed = t.$1;
-      downSpeed = t.$2;
-      notifyListeners();
-    }, onError: (_) {}, cancelOnError: true);
+    _watchTraffic(api);
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       try {
@@ -257,7 +312,27 @@ class CoreService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 速度数据流断了就重新连上，否则界面会一直显示 0，看起来像掉线
+  void _watchTraffic(ClashApi api) {
+    _trafficRetry?.cancel();
+    _trafficSub?.cancel();
+    void retry() {
+      _trafficRetry?.cancel();
+      _trafficRetry = Timer(const Duration(seconds: 2), () {
+        if (identical(_api, api)) _watchTraffic(api);
+      });
+    }
+
+    _trafficSub = api.traffic().listen((t) {
+      upSpeed = t.$1;
+      downSpeed = t.$2;
+      notifyListeners();
+    }, onError: (_) => retry(), onDone: retry, cancelOnError: true);
+  }
+
   Future<void> _stopWatchers() async {
+    _trafficRetry?.cancel();
+    _trafficRetry = null;
     await _trafficSub?.cancel();
     _trafficSub = null;
     _pollTimer?.cancel();
@@ -289,6 +364,7 @@ class CoreService extends ChangeNotifier {
 
   Future<void> disconnect() async {
     _cancelTests();
+    _recoverTimer?.cancel();
     if (running && connectedAt != null) {
       Reporter.instance.event('disconnect', {
         ..._connInfo(),
@@ -314,6 +390,10 @@ class CoreService extends ChangeNotifier {
     await storage.setSelectedNode(tag);
     notifyListeners();
     final api = _api;
+    if (running && _pendingApply) {
+      await connect(); // 切换节点本来就会断开连接，顺便加载新的节点列表
+      return;
+    }
     if (running && api != null) {
       try {
         await api.select('proxy', tag);
@@ -407,7 +487,8 @@ class CoreService extends ChangeNotifier {
   }
 
   Future<int> _measureOnce(ProxyNode n, int gen) async {
-    final api = running ? _api : null;
+    // 内核里没有的新节点不能用正式内核测，走下面的临时测速内核
+    final api = running && !_isStale(n) ? _api : null;
     if (api != null) {
       final probe = _probe;
       return probe != null ? probe.measure(n.tag) : api.delay(n.tag, AppConfig.delayTestUrl);
@@ -448,7 +529,8 @@ class CoreService extends ChangeNotifier {
       final bin = (backend as DesktopBackend).binaryPath;
       if (!File(bin).existsSync()) return null;
       final gen = _testGen;
-      final tester = await Process.start(bin, ['run', '-c', path, '-D', _workDir], workingDirectory: _workDir);
+      final tester = await Process.start(bin, ['run', '-c', path, '-D', _workDir],
+          workingDirectory: _workDir, environment: ConfigBuilder.coreEnv);
       if (gen != _testGen) {
         tester.kill(); // 启动期间用户点了连接
         return null;
@@ -525,6 +607,7 @@ class CoreService extends ChangeNotifier {
   @override
   void dispose() {
     _cancelTests();
+    _recoverTimer?.cancel();
     session.removeListener(_onSessionChanged);
     super.dispose();
   }
