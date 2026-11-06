@@ -93,7 +93,10 @@ class CoreService extends ChangeNotifier {
       } catch (_) {}
     }
     notifyListeners();
-    if (storage.autoConnect && session.loggedIn && session.nodes.isNotEmpty && !running) {
+    final b = backend;
+    final interrupted = b is MobileBackend && !running && await b.wasInterrupted();
+    if (interrupted) Reporter.instance.event('core_recover', {'reason': 'process_died'});
+    if ((interrupted || (storage.autoConnect && session.loggedIn)) && session.nodes.isNotEmpty && !running) {
       unawaited(connect());
     }
   }
@@ -164,9 +167,19 @@ class CoreService extends ChangeNotifier {
   Timer? _recoverTimer;
   final List<DateTime> _coreExits = [];
 
-  /// 内核意外退出时自动重连（电脑端）。5 分钟内最多 3 次，避免配置有问题时反复重启
+  /// 手机端用户可以从通知栏或系统设置关闭 VPN，其它 VPN 也会抢占，这些都不能重连，否则关不掉。
+  /// 只有内核出错退出时才带错误信息；没有授权时重连也没用，还会反复弹授权窗口
+  bool get _abnormalMobileStop {
+    final b = backend;
+    if (b is! MobileBackend || b.lastError == null) return false;
+    final e = b.lastError!.toLowerCase();
+    return !e.contains('permission') && !e.contains('revoked');
+  }
+
+  /// 内核意外退出时自动重连。5 分钟内最多 3 次，避免配置有问题时反复重启
   void _recoverCore() {
-    if (isMobile || session.nodes.isEmpty) return;
+    if (session.nodes.isEmpty) return;
+    if (isMobile && !_abnormalMobileStop) return;
     final now = DateTime.now();
     _coreExits
       ..removeWhere((t) => now.difference(t) > const Duration(minutes: 5))
@@ -215,8 +228,9 @@ class CoreService extends ChangeNotifier {
     needAdmin = false;
     notifyListeners();
     try {
-      // 先停旧内核再选端口，否则旧内核占着端口，每次重连本地代理端口都会变
-      if (wasRunning) await backend.stop();
+      // 先停旧内核再选端口，否则旧内核占着端口，每次重连本地代理端口都会变。
+      // 手机端不能这样：内核支持直接重载，先停会让服务刚启动就被系统销毁
+      if (wasRunning && !isMobile) await backend.stop();
       final tun = isMobile || storage.tunMode;
       final clashPort = await _freePort(isMobile ? 29090 : 19090);
       final secret = _randomHex(32);

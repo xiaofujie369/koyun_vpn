@@ -1,16 +1,19 @@
 diff --git a/route/network.go b/route/network.go
-index 1ff6e49..e7dd981 100644
+index 1ff6e49..b650eec 100644
 --- a/route/network.go
 +++ b/route/network.go
-@@ -44,6 +44,7 @@ type NetworkManager struct {
+@@ -44,6 +44,10 @@ type NetworkManager struct {
  	autoRedirectOutputMark  uint32
  	networkMonitor          tun.NetworkUpdateMonitor
  	interfaceMonitor        tun.DefaultInterfaceMonitor
 +	lastDefaultInterface    *control.Interface
++	keptAccess              sync.Mutex
++	keptInterfaces          []control.Interface
++	keptWatching            bool
  	packageManager          tun.PackageManager
  	powerListener           winpowrprof.EventListener
  	pauseManager            pause.Manager
-@@ -565,11 +566,47 @@ func (r *NetworkManager) updateInterface(ctx context.Context, defaultInterface *
+@@ -565,11 +569,151 @@ func (r *NetworkManager) updateInterface(ctx context.Context, defaultInterface *
  		r.networkResetPending = false
  	}
  	r.interfaceUpdateAccess.Unlock()
@@ -19,16 +22,49 @@ index 1ff6e49..e7dd981 100644
 +	current := *defaultInterface
 +	r.lastDefaultInterface = &current
  	if resetNetwork {
-+		if previous != nil && interfaceStillUsable(previous) {
++		if previous != nil && r.canKeepConnections(previous, &current) {
 +			r.logger.Info("default interface changed, previous still usable, keeping connections")
++			r.keepConnectionsOn(previous, &current)
 +			r.router.ResetNetwork()
 +			return
 +		}
++		r.keptAccess.Lock()
++		r.keptInterfaces = nil
++		r.keptAccess.Unlock()
  		r.ResetNetwork(ctx)
  	}
  }
  
-+func interfaceStillUsable(previous *control.Interface) bool {
++func (r *NetworkManager) canKeepConnections(previous, current *control.Interface) bool {
++	if r.platformInterface != nil && r.platformInterface.UsePlatformNetworkInterfaces() {
++		interfaces, err := r.platformInterface.NetworkInterfaces()
++		if err != nil {
++			return false
++		}
++		previousInterface := common.Find(interfaces, func(it adapter.NetworkInterface) bool { return it.Index == previous.Index })
++		currentInterface := common.Find(interfaces, func(it adapter.NetworkInterface) bool { return it.Index == current.Index })
++		// Phones leave Wi-Fi for cellular because Wi-Fi went bad, even while it still looks connected.
++		if previousInterface.Name != "" && currentInterface.Name != "" &&
++			previousInterface.Type == C.InterfaceTypeWIFI && currentInterface.Type == C.InterfaceTypeCellular {
++			return false
++		}
++	}
++	return r.interfaceStillUsable(previous)
++}
++
++func (r *NetworkManager) interfaceStillUsable(previous *control.Interface) bool {
++	if r.platformInterface != nil && r.platformInterface.UsePlatformNetworkInterfaces() {
++		interfaces, err := r.platformInterface.NetworkInterfaces()
++		if err != nil {
++			return false
++		}
++		for _, it := range interfaces {
++			if it.Index == previous.Index {
++				return it.Flags&net.FlagUp != 0 && sharesAddress(previous.Addresses, it.Addresses)
++			}
++		}
++		return false
++	}
 +	iface, err := net.InterfaceByIndex(previous.Index)
 +	if err != nil || iface.Flags&net.FlagUp == 0 {
 +		return false
@@ -37,22 +73,93 @@ index 1ff6e49..e7dd981 100644
 +	if err != nil {
 +		return false
 +	}
++	var prefixes []netip.Prefix
 +	for _, addr := range addrs {
 +		ipNet, isIPNet := addr.(*net.IPNet)
 +		if !isIPNet {
 +			continue
 +		}
 +		ip, ok := netip.AddrFromSlice(ipNet.IP)
-+		if !ok || ip.Unmap().IsLinkLocalUnicast() {
++		if ok {
++			prefixes = append(prefixes, netip.PrefixFrom(ip.Unmap(), ip.Unmap().BitLen()))
++		}
++	}
++	return sharesAddress(previous.Addresses, prefixes)
++}
++
++func sharesAddress(previous, now []netip.Prefix) bool {
++	for _, a := range previous {
++		if a.Addr().Unmap().IsLinkLocalUnicast() {
 +			continue
 +		}
-+		for _, prefix := range previous.Addresses {
-+			if prefix.Addr() == ip.Unmap() {
++		for _, b := range now {
++			if a.Addr().Unmap() == b.Addr().Unmap() {
 +				return true
 +			}
 +		}
 +	}
 +	return false
++}
++
++// Connections left on an interface that later goes away would hang until they time out,
++// so watch every interface we kept connections on and reset as soon as one is gone.
++func (r *NetworkManager) keepConnectionsOn(previous, current *control.Interface) {
++	r.keptAccess.Lock()
++	defer r.keptAccess.Unlock()
++	kept := r.keptInterfaces[:0]
++	for _, it := range r.keptInterfaces {
++		if it.Index != previous.Index && it.Index != current.Index {
++			kept = append(kept, it)
++		}
++	}
++	if previous.Index != current.Index {
++		kept = append(kept, *previous)
++	}
++	r.keptInterfaces = kept
++	if !r.keptWatching && len(kept) > 0 {
++		r.keptWatching = true
++		go r.watchKeptInterfaces(r.startedCtx)
++	}
++}
++
++func (r *NetworkManager) watchKeptInterfaces(ctx context.Context) {
++	ticker := time.NewTicker(3 * time.Second)
++	defer ticker.Stop()
++	for {
++		select {
++		case <-ctx.Done():
++			return
++		case <-ticker.C:
++		}
++		r.keptAccess.Lock()
++		kept := append([]control.Interface(nil), r.keptInterfaces...)
++		r.keptAccess.Unlock()
++		lost := false
++		for i := range kept {
++			if !r.interfaceStillUsable(&kept[i]) {
++				lost = true
++				break
++			}
++		}
++		if !lost && len(kept) > 0 {
++			continue
++		}
++		r.keptAccess.Lock()
++		if lost {
++			r.keptInterfaces = nil
++		}
++		r.keptWatching = false
++		r.keptAccess.Unlock()
++		if lost {
++			r.logger.Info("kept interface is gone, resetting connections")
++			r.resetRunAccess.Lock()
++			if ctx.Err() == nil {
++				r.ResetNetwork(ctx)
++			}
++			r.resetRunAccess.Unlock()
++		}
++		return
++	}
 +}
 +
  func (r *NetworkManager) notifyWindowsPowerEvent(event int) {

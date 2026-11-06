@@ -148,8 +148,7 @@ class ConfigBuilder {
       });
     }
 
-    // 电脑端节点域名由 DNS 规则解析；手机端内核没有 coreEnv，暂时保持单个服务器
-    final nodeDomains = o.mobile ? const <String>[] : ConfigBuilder.nodeDomains(o.nodes);
+    final nodeDomains = ConfigBuilder.nodeDomains(o.nodes);
     const direct = ['dns-direct-ali', 'dns-direct-pub', 'dns-direct'];
     const remote = ['dns-remote', 'dns-remote-google'];
 
@@ -269,8 +268,7 @@ class ConfigBuilder {
         // 绑定默认网卡只为防止 TUN 回环。系统代理模式下交给系统路由，
         // 否则 IPv6 走的网卡和默认 IPv4 网卡不同时，IPv6 节点连不上。
         'auto_detect_interface': o.tun || o.mobile,
-        // 节点地址本身不能走代理解析。电脑端由上面的 DNS 规则处理（见 coreEnv）
-        if (o.mobile) 'default_domain_resolver': {'server': 'dns-direct', 'strategy': 'prefer_ipv4'},
+        // 节点地址本身不能走代理解析，由上面的 DNS 规则处理（电脑端见 coreEnv；手机端内核不要求这个环境变量）
       },
       'experimental': {
         'cache_file': o.testerOnly

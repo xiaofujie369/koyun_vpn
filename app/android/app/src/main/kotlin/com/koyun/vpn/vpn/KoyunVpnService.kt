@@ -70,6 +70,16 @@ class KoyunVpnService : VpnService(), PlatformInterface, CommandServerHandler {
             tmp.renameTo(configFile(ctx))
         }
 
+        /** 用户是否想保持连接。内核和 App 在同一进程，崩溃后什么都不会运行，所以要存到磁盘 */
+        private fun setWanted(ctx: Context, wanted: Boolean) {
+            ctx.getSharedPreferences("vpn", Context.MODE_PRIVATE).edit().putBoolean("wanted", wanted).apply()
+        }
+
+        /** 上次没有正常断开就没了（进程崩溃或被系统杀掉） */
+        fun interrupted(ctx: Context): Boolean =
+            VpnState.status == "stopped" &&
+                ctx.getSharedPreferences("vpn", Context.MODE_PRIVATE).getBoolean("wanted", false)
+
         fun stop(ctx: Context) {
             if (VpnState.status == "stopped") return
             ctx.startService(Intent(ctx, KoyunVpnService::class.java).setAction(ACTION_STOP))
@@ -109,6 +119,7 @@ class KoyunVpnService : VpnService(), PlatformInterface, CommandServerHandler {
             else -> {
                 // ACTION_START，或系统"始终开启 VPN"拉起（intent 为空）
                 showNotification()
+                setWanted(this, true)
                 VpnState.set("starting")
                 worker.execute { startVpn() }
             }
@@ -134,6 +145,7 @@ class KoyunVpnService : VpnService(), PlatformInterface, CommandServerHandler {
             VpnState.set("running")
         } catch (e: Throwable) {
             Log.e(TAG, "start failed", e)
+            setWanted(this, false)
             cleanup()
             VpnState.set("stopped", e.message ?: e.toString())
             stopForegroundCompat()
@@ -142,6 +154,7 @@ class KoyunVpnService : VpnService(), PlatformInterface, CommandServerHandler {
     }
 
     private fun stopVpn() {
+        setWanted(this, false)
         cleanup()
         VpnState.set("stopped")
         stopForegroundCompat()

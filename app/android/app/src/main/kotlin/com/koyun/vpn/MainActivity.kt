@@ -46,6 +46,7 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "status" -> result.success(VpnState.status)
+                "interrupted" -> result.success(KoyunVpnService.interrupted(this))
                 else -> result.notImplemented()
             }
         }

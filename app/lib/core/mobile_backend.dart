@@ -66,6 +66,15 @@ class MobileBackend extends CoreBackend {
   Future<bool> isRunning() async =>
       (await _ch.invokeMethod<String>('status')) == 'running';
 
+  /// 上次的连接没有正常断开就没了（进程崩溃或被系统杀掉）
+  Future<bool> wasInterrupted() async {
+    try {
+      return await _ch.invokeMethod<bool>('interrupted') ?? false;
+    } catch (_) {
+      return false; // iOS 没有这个方法
+    }
+  }
+
   @override
   Future<bool> prepare() async => await _ch.invokeMethod<bool>('prepare') ?? false;
 
