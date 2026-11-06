@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -143,6 +144,13 @@ class DesktopShell with TrayListener, WindowListener {
   final CoreService core;
 
   Future<void> install() async {
+    // macOS 的 Cmd+Q 不经过关闭窗口：要先恢复系统代理，否则退出后上不了网
+    if (Platform.isMacOS) {
+      AppLifecycleListener(onExitRequested: () async {
+        await quit();
+        return AppExitResponse.exit;
+      });
+    }
     windowManager.addListener(this);
     trayManager.addListener(this);
     await trayManager.setIcon(

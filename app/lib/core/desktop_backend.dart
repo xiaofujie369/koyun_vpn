@@ -194,6 +194,9 @@ kill -9 $P 2>/dev/null
 rm -f "$FLAG"
 ''');
     await File(_macFlag).writeAsString('1');
+    // 先以普通用户创建：否则文件归 root 所有，之后切回系统代理模式内核打不开缓存
+    await File('$workDir/cache.db').create();
+    await File(_logPath).create();
     String q(String s) => "'${s.replaceAll("'", "'\\''")}'";
     final cmd = '/bin/sh ${q(script.path)} ${q(binaryPath)} ${q(_configPath)} '
         '${q(workDir)} ${q(_macFlag)} ${q(_logPath)} ${q('$workDir/core-root.pid')} '

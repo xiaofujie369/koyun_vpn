@@ -1,15 +1,20 @@
 # Windows / macOS / iOS 必须在对应系统上编译，所以放在 GitHub Actions。
 # Android 在自有编译机上编译（签名密钥不上传 GitHub，更安全）。
-# 触发：推送 v* 标签自动发布；也可在 Actions 页面手动运行。
+# 触发：只能手动运行，产物再传到草稿 Release。不能用标签触发：
+# publish.sh 发布时才创建标签，会重新编译并覆盖用户已测试过的安装包。
 # 域名放在仓库 Secrets（KOYUN_API / KOYUN_WEB，用 tools/encode_domains.py 生成），不写进代码。
 # 数据后台（可选，不设置 = 关闭上报）：KOYUN_STATS / KOYUN_STATS_KEY，同样用 encode_domains.py 生成。
 # 启动引导配置（Cloudflare Pages / koyunoss）：KOYUN_BOOT / KOYUN_BOOT_PUB / KOYUN_BOOT_KEY，用 tools/bootstrap.py 生成。
 name: build
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      platform:
+        description: 要编译的平台
+        type: choice
+        options: [all, windows, macos]
+        default: all
 
 env:
   FLUTTER_VERSION: '3.47.9'
@@ -21,6 +26,7 @@ permissions:
 
 jobs:
   windows:
+    if: inputs.platform != 'macos'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,9 +77,8 @@ jobs:
           name: windows
           path: dist/*
 
-  # macOS 暂时不编译；需要时把 if 改为 true
   macos:
-    if: false
+    if: inputs.platform != 'windows'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,25 +94,74 @@ jobs:
           dart run flutter_launcher_icons
           flutter gen-l10n
           flutter build macos --release --dart-define=KOYUN_API=${{ secrets.KOYUN_API }} --dart-define=KOYUN_WEB=${{ secrets.KOYUN_WEB }} --dart-define=KOYUN_STATS=${{ secrets.KOYUN_STATS }} --dart-define=KOYUN_STATS_KEY=${{ secrets.KOYUN_STATS_KEY }} --dart-define=KOYUN_BOOT=${{ secrets.KOYUN_BOOT }} --dart-define=KOYUN_BOOT_PUB=${{ secrets.KOYUN_BOOT_PUB }} --dart-define=KOYUN_BOOT_KEY=${{ secrets.KOYUN_BOOT_KEY }}
-      - name: 打包内核（通用二进制，Intel + Apple 芯片）
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      # 和 Windows 用同一份打过补丁的内核；同时支持 Intel 和 Apple 芯片
+      - name: 编译内核
         run: |
           v=${{ env.SING_BOX_VERSION }}
+          git clone --depth 1 -b "v$v" https://github.com/SagerNet/sing-box.git sb
+          git -C sb apply - < tools/singbox-keep-conns.patch
+          cd sb
           for a in amd64 arm64; do
-            curl -fsSL "https://github.com/SagerNet/sing-box/releases/download/v$v/sing-box-$v-darwin-$a.tar.gz" | tar -xz
+            CGO_ENABLED=0 GOOS=darwin GOARCH=$a go build -trimpath \
+              -tags "with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0" \
+              -ldflags "-X github.com/sagernet/sing-box/constant.Version=$v-koyun -X runtime.godebugDefault=multipathtcp=0,tlssha1=1 -checklinkname=0 -s -w -buildid=" \
+              -o "../sing-box-$a" ./cmd/sing-box
           done
-          lipo -create sing-box-$v-darwin-amd64/sing-box sing-box-$v-darwin-arm64/sing-box -output sing-box
+          cd ..
+          lipo -create sing-box-amd64 sing-box-arm64 -output sing-box
+          codesign --force --sign - sing-box
+          ./sing-box version
+      - name: 打包
+        run: |
           APP=app/build/macos/Build/Products/Release/Koyun.app
           cp sing-box "$APP/Contents/Resources/sing-box"
           chmod +x "$APP/Contents/Resources/sing-box"
-          # 没有开发者证书时用临时签名（客户首次打开需右键→打开）
+          # 没有苹果开发者证书，只能临时签名：客户首次打开要到“隐私与安全性”里点“仍要打开”
           codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
           ver=$(grep -E '^version:' app/pubspec.yaml | sed -E 's/version: *([0-9.]+).*/\1/')
           mkdir -p dist dmg && cp -R "$APP" dmg/ && ln -s /Applications dmg/Applications
           hdiutil create -volname Koyun -srcfolder dmg -ov -format UDZO "dist/Koyun-$ver-macos-universal.dmg"
+      # 从 dmg 里装出来再检查，和客户拿到的文件一致
+      - name: 检查安装包
+        run: |
+          hdiutil attach dist/*.dmg -mountpoint /tmp/koyun-dmg -nobrowse
+          cp -R /tmp/koyun-dmg/Koyun.app /Applications/
+          hdiutil detach /tmp/koyun-dmg
+          APP=/Applications/Koyun.app
+          lipo -archs "$APP/Contents/MacOS/Koyun"
+          lipo -archs "$APP/Contents/Resources/sing-box"
+          codesign --verify --deep --strict "$APP"
+          cat > /tmp/kv-test.json <<'JSON'
+          {"inbounds":[{"type":"mixed","listen":"127.0.0.1","listen_port":17999}],"outbounds":[{"type":"direct"}]}
+          JSON
+          "$APP/Contents/Resources/sing-box" run -c /tmp/kv-test.json & core=$!
+          sleep 3
+          curl -sS -o /dev/null -w '内核代理 HTTP %{http_code}\n' --max-time 20 -x http://127.0.0.1:17999 https://www.apple.com/
+          kill $core
+          open "$APP"
+          sleep 25
+          pgrep -x Koyun
+          mkdir -p check
+          screencapture -x check/launch.png || true
+          # 模拟 Cmd+Q，确认能走完退出流程
+          osascript -e 'tell application "Koyun" to quit' &
+          sleep 15
+          if pgrep -x Koyun; then echo "⚠️ 退出后进程还在"; pkill -9 -x Koyun; else echo "退出正常"; fi
       - uses: actions/upload-artifact@v4
         with:
           name: macos
           path: dist/*
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-check
+          path: check/*
+          if-no-files-found: ignore
 
   # iOS 需要苹果开发者账号才能签名安装，暂时关闭；有账号后把 if 改为 true
   ios:
@@ -151,19 +205,3 @@ jobs:
         with:
           name: ios
           path: dist/*
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - name: 校验文件
-        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          draft: true
