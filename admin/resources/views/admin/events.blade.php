@@ -5,6 +5,8 @@
 <p class="desc">App 自动上报的启动、连接、断开、崩溃记录。保留 {{ config('koyun.retention_days') }} 天。</p>
 <form class="filters">
   <select name="type"><option value="">全部类型</option>@foreach($types as $k=>$v)<option value="{{ $k }}" @selected(request('type')===$k)>{{ $v }}</option>@endforeach</select>
+  <select name="platform"><option value="">全部平台</option>@foreach($platforms as $p)<option @selected(request('platform')===$p)>{{ $p }}</option>@endforeach</select>
+  <select name="version"><option value="">全部版本</option>@foreach($versions as $v)<option @selected(request('version')===$v)>{{ $v }}</option>@endforeach</select>
   <input name="device" value="{{ request('device') }}" placeholder="设备编号开头">
   <input type="date" name="date" value="{{ request('date') }}">
   <input name="q" value="{{ request('q') }}" placeholder="搜索内容（节点名、错误…）">

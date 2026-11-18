@@ -7,6 +7,7 @@ use App\Models\ClientEvent;
 use App\Models\Device;
 use App\Models\Feedback;
 use App\Models\Setting;
+use App\Services\ConnState;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -56,12 +57,16 @@ class ClientController extends Controller
             return response()->json(['message' => 'invalid events'], 422);
         }
         $rows = [];
+        $parsed = [];
         $now = now();
         foreach (array_slice($events, 0, 50) as $e) {
             if (! is_array($e)) continue;
             $type = (string) ($e['type'] ?? '');
             if (! preg_match('/^[a-z_]{1,32}$/', $type)) continue;
             $data = is_array($e['data'] ?? null) ? $e['data'] : [];
+            $parsed[] = ['type' => $type, 'data' => $data, 'ts' => $e['ts'] ?? null];
+            // 心跳（1.1.8 起，连接中每 5 分钟一次）只用来更新“实时在线”，不存成事件，免得事件表膨胀
+            if ($type === 'heartbeat') continue;
             $json = json_encode($data, JSON_UNESCAPED_UNICODE);
             if ($json === false || strlen($json) > 16000) $json = '{}';
             $rows[] = [
@@ -77,11 +82,14 @@ class ClientController extends Controller
             DB::table('client_events')->insert($rows);
             Device::whereKey($id)->increment('events_count', count($rows));
         }
+        if ($parsed && ($dev = Device::find($id)) && ($u = ConnState::apply($dev, $parsed, $now))) {
+            $dev->update($u);
+        }
         // 每天第一次收到上报时，顺便清理过期事件（在返回响应之后执行，不影响 App；不需要系统定时任务）
         if (Cache::add('koyun_prune_' . now()->toDateString(), 1, now()->addDays(2))) {
             app()->terminating(fn () => Artisan::call('koyun:prune'));
         }
-        return response()->json(['ok' => true, 'accepted' => count($rows)]);
+        return response()->json(['ok' => true, 'accepted' => count($parsed)]);
     }
 
     /** POST /api/v1/client/feedback */

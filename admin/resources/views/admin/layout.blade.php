@@ -4,7 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>@yield('title') · Koyun 后台</title>
-<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=1">
+<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=2">
+@stack('head')
 </head>
 <body>
 <div class="wrap">
@@ -12,8 +13,10 @@
     <div class="brand">Koyun 后台<small>客户端数据管理</small></div>
     @php($r = request()->route()?->getName() ?? '')
     @php($fbNew = \App\Models\Feedback::where('status','new')->count())
+    @php($onlineN = \App\Models\Device::online()->real()->count())
     <nav class="nav">
       <a href="{{ route('admin.dashboard') }}" class="{{ $r==='admin.dashboard'?'on':'' }}">仪表盘</a>
+      <a href="{{ route('admin.online') }}" class="{{ $r==='admin.online'?'on':'' }}">实时在线 <span class="badge ok">{{ $onlineN }}</span></a>
       <a href="{{ route('admin.feedback') }}" class="{{ str_starts_with($r,'admin.feedback')?'on':'' }}">用户反馈 @if($fbNew)<span class="badge">{{ $fbNew }}</span>@endif</a>
       <a href="{{ route('admin.devices') }}" class="{{ str_starts_with($r,'admin.devices')?'on':'' }}">设备</a>
       <a href="{{ route('admin.events') }}" class="{{ $r==='admin.events' && request('type')!=='crash' ?'on':'' }}">事件日志</a>

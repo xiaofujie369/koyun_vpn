@@ -2,15 +2,37 @@
 @section('title', '仪表盘')
 @section('content')
 <h1>仪表盘</h1>
-<p class="desc">数据每 2 分钟更新一次（本次 {{ $generated_at }}）。活跃 = 当天有任何上报的设备。</p>
+<p class="desc">数据每 2 分钟更新一次（本次 {{ $generated_at }}）。活跃 = 当天有任何上报的设备。@if($tests)已排除 {{ $tests }} 台测试机。@endif</p>
 
 <div class="grid g4">
-  <div class="card stat"><div class="k">今日活跃设备</div><div class="v">{{ $active_today }}</div><div class="s">近 7 天 {{ $active_7d }}</div></div>
-  <div class="card stat"><div class="k">设备总数</div><div class="v">{{ $devices_total }}</div><div class="s">今日新增 {{ $new_today }}</div></div>
+  <div class="card stat"><div class="k">正在连接</div><div class="v"><a href="{{ route('admin.online') }}">{{ $online }}</a></div><div class="s">点击查看实时在线</div></div>
+  <div class="card stat"><div class="k">今日活跃设备</div><div class="v">{{ $active_today }}</div><div class="s">近 7 天 {{ $active_7d }} · 共 {{ $devices_total }} 台（今日新增 {{ $new_today }}）</div></div>
   <div class="card stat"><div class="k">今日连接成功率</div>
     <div class="v" style="color:{{ $conn_rate === null ? 'inherit' : ($conn_rate >= 90 ? 'var(--ok)' : ($conn_rate >= 70 ? 'var(--warn)' : 'var(--bad)')) }}">{{ $conn_rate === null ? '—' : $conn_rate.'%' }}</div>
     <div class="s">成功 {{ $conn_ok }} · 失败 {{ $conn_fail }}</div></div>
   <div class="card stat"><div class="k">待处理反馈 / 今日崩溃</div><div class="v"><a href="{{ route('admin.feedback') }}">{{ $feedback_new }}</a> <span class="muted">/</span> <a href="{{ route('admin.events',['type'=>'crash']) }}">{{ $crash_today }}</a></div><div class="s">点击数字查看</div></div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <h2>节点健康（近 24 小时）<span class="muted" style="font-size:12px;font-weight:400"> · 1.1.7 起：连接前检测不通、连接中 / 切换后检测不通都算“不通”。不通的设备多 → 很可能被封</span></h2>
+  <table>
+    <tr><th>节点</th><th class="right">连上</th><th class="right">不通</th><th class="right">不通的设备</th><th class="right">不通比例</th></tr>
+    @forelse($health as $n)
+      @php($t = $n->ok + $n->bad)
+      @php($rate = $t ? round($n->bad*100/$t) : 0)
+      <tr><td>{{ $n->node ?: '（未知）' }}</td><td class="right">{{ $n->ok }}</td><td class="right">{{ $n->bad }}</td><td class="right">{{ $n->bad_dev }}</td>
+        <td class="right"><span class="tag {{ $rate>=50?'t-bad':($rate>=20?'t-warn':'t-ok') }}">{{ $rate }}%</span></td></tr>
+    @empty <tr><td colspan="5" class="muted">近 24 小时没有节点检测不通 👍（需要客户升级到 1.1.7 才有这项数据）</td></tr> @endforelse
+  </table>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <h2>版本升级进度（近 7 天活跃设备）@if($guard_7d)<span class="muted" style="font-size:12px;font-weight:400"> · 近 7 天系统代理被其他软件改掉、已自动恢复 {{ $guard_7d }} 次</span>@endif</h2>
+  @forelse($adoption as $plat => $vers)
+    @php($pt2 = max(1, $vers->sum()))
+    <div class="row" style="margin-bottom:8px;align-items:flex-start"><div style="width:80px">{{ $plat }}</div>
+      <div style="flex:1">@foreach($vers as $ver => $c)<span class="tag {{ $loop->first ? 't-accent' : '' }}" style="margin:0 6px 4px 0;display:inline-block">v{{ $ver }} · {{ $c }} 台（{{ round($c*100/$pt2) }}%）</span>@endforeach</div></div>
+  @empty <p class="muted">暂无数据</p> @endforelse
 </div>
 
 <div class="card" style="margin-top:14px">
@@ -52,7 +74,7 @@
   <table>
     <tr><th>原因</th><th class="right" style="width:80px">次数</th></tr>
     @forelse($fail_reasons as $e)
-      <tr><td class="mono">{{ $e->e ?: '（空）' }}</td><td class="right">{{ $e->c }}</td></tr>
+      <tr><td class="mono">@if($e->k)<span class="tag t-warn">{{ \App\Models\ClientEvent::FAIL_KINDS[$e->k] ?? $e->k }}</span> @endif{{ $e->e ?: '（空）' }}</td><td class="right">{{ $e->c }}</td></tr>
     @empty <tr><td colspan="2" class="muted">暂无失败记录</td></tr> @endforelse
   </table>
 </div>

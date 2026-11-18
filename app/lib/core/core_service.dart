@@ -421,6 +421,22 @@ class CoreService extends ChangeNotifier {
     return false;
   }
 
+  /// 心跳（后台“实时在线”用）：连接期间每 5 分钟报一次当前节点和网速。
+  /// 后台只用它更新设备状态，不存成事件；上报队列每 5 分钟发一次，所以后台最多晚 10 分钟知道
+  Timer? _heartbeatTimer;
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (status != CoreStatus.running) return;
+      Reporter.instance.event('heartbeat', {
+        ..._connInfo(),
+        'down': downSpeed,
+        'up': upSpeed,
+        if (connectedAt != null) 'since': connectedAt!.millisecondsSinceEpoch ~/ 1000,
+      });
+    });
+  }
+
   /// 系统代理守卫（参考 Clash Verge）：系统代理模式下每 10 秒检查一次，
   /// 被其他软件（加速器、浏览器插件等）改掉就改回来——客户看到的就是“突然掉线”
   Timer? _guardTimer;
@@ -484,6 +500,7 @@ class CoreService extends ChangeNotifier {
     _watchTraffic(api);
     _startHealthCheck(api);
     _startProxyGuard();
+    _startHeartbeat();
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       try {
@@ -537,6 +554,7 @@ class CoreService extends ChangeNotifier {
     unawaited(_stopWatchers());
     _healthTimer?.cancel();
     _guardTimer?.cancel();
+    _heartbeatTimer?.cancel();
     nodeUnreachable = false;
     _api?.close();
     _api = null;

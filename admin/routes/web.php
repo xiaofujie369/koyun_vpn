@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DeviceController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\FeedbackController;
+use App\Http\Controllers\Admin\OnlineController;
 use App\Http\Controllers\Admin\SettingController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,7 +20,9 @@ Route::prefix(config('koyun.admin_path'))->name('admin.')->group(function () {
     });
     Route::middleware('auth')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('online', [OnlineController::class, 'index'])->name('online');
         Route::get('devices', [DeviceController::class, 'index'])->name('devices');
+        Route::post('devices/{device}/test', [DeviceController::class, 'toggleTest'])->name('devices.test');
         Route::get('devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
         Route::get('events', [EventController::class, 'index'])->name('events');
         Route::get('feedback', [FeedbackController::class, 'index'])->name('feedback');

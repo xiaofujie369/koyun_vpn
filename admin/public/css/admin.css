@@ -38,3 +38,4 @@ pre{background:#1f1d1a;color:#e9e6df;border-radius:10px;padding:12px 14px;overfl
 .row{display:flex;gap:14px;align-items:center}.muted{color:var(--faint)}.right{text-align:right}
 .bar{height:6px;background:#f1eee8;border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}
 label.f{display:block;margin:0 0 4px;color:var(--sub);font-size:12.5px}.field{margin-bottom:12px}.field input[type=text],.field input[type=url],.field input[type=password],.field input[type=email]{width:100%}
+.badge.ok{background:var(--ok)}.filters label{display:inline-flex;align-items:center;gap:4px;font-size:13px}
