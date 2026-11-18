@@ -60,6 +60,9 @@ class CoreService extends ChangeNotifier {
   Timer? _healthTimer;
   bool _diedWhileStarting = false;
 
+  /// 安卓：上次连接是被系统杀掉的（不是用户断开）。界面据此提示允许后台运行
+  bool killedBySystem = false;
+
   String selected = 'auto';
   String? autoNow; // 自动选择当前实际使用的节点
   final Map<String, int> delays = {}; // tag -> ms（-1 失败）
@@ -107,7 +110,10 @@ class CoreService extends ChangeNotifier {
     notifyListeners();
     final b = backend;
     final interrupted = b is MobileBackend && !running && await b.wasInterrupted();
-    if (interrupted) Reporter.instance.event('core_recover', {'reason': 'process_died'});
+    if (interrupted) {
+      killedBySystem = true;
+      Reporter.instance.event('core_recover', {'reason': 'process_died'});
+    }
     if ((interrupted || (storage.autoConnect && session.loggedIn)) && session.nodes.isNotEmpty && !running) {
       unawaited(connect());
     }

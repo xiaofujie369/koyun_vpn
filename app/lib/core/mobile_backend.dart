@@ -75,6 +75,36 @@ class MobileBackend extends CoreBackend {
     }
   }
 
+  /// 安卓：是否已允许后台运行（不受电池优化限制）。其它平台视为已允许
+  Future<bool> batteryExempt() async {
+    try {
+      return await _ch.invokeMethod<bool>('batteryExempt') ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> requestBatteryExempt() async {
+    try {
+      await _ch.invokeMethod('requestBatteryExempt');
+    } catch (_) {}
+  }
+
+  Future<void> openAppSettings() async {
+    try {
+      await _ch.invokeMethod('openAppSettings');
+    } catch (_) {}
+  }
+
+  /// 手机厂商（小写），用来给出对应系统的设置提示
+  Future<String> brand() async {
+    try {
+      return (await _ch.invokeMethod<String>('brand') ?? '').toLowerCase();
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   Future<bool> prepare() async => await _ch.invokeMethod<bool>('prepare') ?? false;
 

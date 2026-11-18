@@ -3,8 +3,11 @@ package com.koyun.vpn
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.koyun.vpn.vpn.KoyunVpnService
 import com.koyun.vpn.vpn.VpnState
@@ -48,6 +51,10 @@ class MainActivity : FlutterActivity() {
                 "status" -> result.success(VpnState.status)
                 "interrupted" -> result.success(KoyunVpnService.interrupted(this))
                 "abis" -> result.success(Build.SUPPORTED_ABIS.toList())
+                "batteryExempt" -> result.success(batteryExempt())
+                "requestBatteryExempt" -> result.success(requestBatteryExempt())
+                "openAppSettings" -> result.success(openAppSettings())
+                "brand" -> result.success(Build.MANUFACTURER ?: "")
                 else -> result.notImplemented()
             }
         }
@@ -65,6 +72,28 @@ class MainActivity : FlutterActivity() {
     }
 
     /** 申请 VPN 授权（首次连接时系统弹窗），Android 13+ 顺便申请通知权限 */
+    /** 是否已允许后台运行（不受电池优化限制）。国产系统不允许的话，切到后台不久内核就会被杀 */
+    private fun batteryExempt(): Boolean =
+        getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) ?: true
+
+    /** 弹系统窗口请用户允许；个别系统没有这个窗口，就打开电池优化列表 */
+    private fun requestBatteryExempt(): Boolean {
+        if (batteryExempt()) return true
+        return runCatching {
+            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+            true
+        }.recoverCatching {
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            true
+        }.getOrDefault(false)
+    }
+
+    /** 打开本 App 的系统设置页（小米 / 华为 / OPPO 的“自启动”“省电策略”在这里面） */
+    private fun openAppSettings(): Boolean = runCatching {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        true
+    }.getOrDefault(false)
+
     private fun prepare(result: MethodChannel.Result) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

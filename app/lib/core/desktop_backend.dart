@@ -55,7 +55,22 @@ class DesktopBackend extends CoreBackend {
     if (line.contains(' INFO ') && !networkChange) return;
     _addLog(line);
     // 默认网卡变化时内核会断开所有连接，这是掉线的一个来源
-    if (networkChange) Reporter.instance.event('net_reset', {'line': line});
+    if (networkChange) _reportNetReset(line);
+  }
+
+  // 网卡反复变化的电脑（后台见过一台 12 天上报 3746 次）会刷满日志：10 分钟最多报一次，附带省略的次数
+  DateTime? _netResetAt;
+  int _netResetSkipped = 0;
+
+  void _reportNetReset(String line) {
+    final now = DateTime.now();
+    if (_netResetAt != null && now.difference(_netResetAt!) < const Duration(minutes: 10)) {
+      _netResetSkipped++;
+      return;
+    }
+    Reporter.instance.event('net_reset', {'line': line, if (_netResetSkipped > 0) 'skipped': _netResetSkipped});
+    _netResetAt = now;
+    _netResetSkipped = 0;
   }
 
   @override

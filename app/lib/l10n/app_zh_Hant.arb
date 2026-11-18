@@ -206,5 +206,9 @@
  "warnNodeUnreachable": "目前節點連不上了，可能已被封鎖，建議換一個節點。",
  "changeNode": "換節點",
  "errTunAdapter": "TUN 虛擬網卡建立失敗（上次異常退出留下了舊網卡）。請重新開機後再試，或先關閉 TUN 模式使用。",
- "errorDetails": "詳細資訊"
+ "errorDetails": "詳細資訊",
+ "bgTitle": "允許 Koyun 背景執行",
+ "bgBody": "手機系統為了省電，會在背景關掉 Koyun，導致斷線。點擊「去允許」，在彈出的視窗中選擇「允許」。",
+ "bgBodyRom": "部分手機（小米、華為、OPPO、vivo 等）還需要：在應用程式設定裡把「省電策略」設為「無限制」，並開啟「自啟動」。",
+ "bgAllow": "去允許"
 }

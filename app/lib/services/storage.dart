@@ -129,6 +129,10 @@ class Storage {
   bool get ipv6 => _p.getBool('ipv6') ?? false;
   Future<void> setIpv6(bool v) => _p.setBool('ipv6', v);
 
+  /// 安卓：已经提示过“允许后台运行”
+  bool get bgHintShown => _p.getBool('bg_hint') ?? false;
+  Future<void> setBgHintShown(bool v) => _p.setBool('bg_hint', v);
+
   bool get autoConnect => _p.getBool('auto_connect') ?? false;
   Future<void> setAutoConnect(bool v) => _p.setBool('auto_connect', v);
 

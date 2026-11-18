@@ -297,5 +297,9 @@
  "warnNodeUnreachable": "当前节点连不上了，可能已被封锁，建议换一个节点。",
  "changeNode": "换节点",
  "errTunAdapter": "TUN 虚拟网卡创建失败（上次异常退出留下了旧网卡）。请重启电脑后再试，或先关闭 TUN 模式使用。",
- "errorDetails": "详细信息"
+ "errorDetails": "详细信息",
+ "bgTitle": "允许 Koyun 后台运行",
+ "bgBody": "手机系统为了省电，会在后台关掉 Koyun，导致断线。点击「去允许」，在弹出的窗口里选择「允许」。",
+ "bgBodyRom": "部分手机（小米、华为、OPPO、vivo 等）还需要：在应用设置里把「省电策略」设为「无限制」，并打开「自启动」。",
+ "bgAllow": "去允许"
 }

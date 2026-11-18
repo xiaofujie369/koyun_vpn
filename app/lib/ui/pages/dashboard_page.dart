@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/core_backend.dart';
 import '../../core/core_service.dart';
+import '../../core/mobile_backend.dart';
 import '../../services/ip_info.dart';
 import '../../services/session.dart';
 import '../../services/storage.dart';
@@ -70,6 +71,48 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } else if (core.lastError != null && !core.running) {
       _showError(core);
+    } else if (core.running) {
+      await _maybeAskBackground(core);
+    }
+  }
+
+  /// 安卓：国产系统切到后台不久就会杀掉 VPN。连接成功后请用户允许后台运行；
+  /// 只提示一次，被系统杀过之后再提示一次
+  Future<void> _maybeAskBackground(CoreService core) async {
+    final b = core.backend;
+    if (!Platform.isAndroid || b is! MobileBackend) return;
+    final storage = core.storage;
+    if (storage.bgHintShown && !core.killedBySystem) return;
+    final exempt = await b.batteryExempt();
+    final brand = await b.brand();
+    const strict = ['xiaomi', 'redmi', 'huawei', 'honor', 'oppo', 'oneplus', 'realme', 'vivo', 'iqoo', 'meizu'];
+    final strictRom = strict.any(brand.contains);
+    if (exempt && !(strictRom && core.killedBySystem)) return;
+    core.killedBySystem = false;
+    await storage.setBgHintShown(true);
+    if (!mounted) return;
+    final t = context.t;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(t.bgTitle),
+        content: Text(exempt ? t.bgBodyRom : (strictRom ? '${t.bgBody}\n\n${t.bgBodyRom}' : t.bgBody),
+            style: const TextStyle(fontSize: 14, height: 1.5)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t.later)),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(t.bgAllow),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (!exempt) {
+      await b.requestBatteryExempt();
+    } else {
+      await b.openAppSettings();
     }
   }
 

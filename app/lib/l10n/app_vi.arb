@@ -206,5 +206,9 @@
  "warnNodeUnreachable": "Nút hiện tại không phản hồi, có thể đã bị chặn. Hãy thử nút khác.",
  "changeNode": "Đổi nút",
  "errTunAdapter": "Không tạo được bộ điều hợp TUN (còn sót bộ điều hợp cũ sau lần thoát bất thường). Hãy khởi động lại máy hoặc tạm tắt chế độ TUN.",
- "errorDetails": "Chi tiết"
+ "errorDetails": "Chi tiết",
+ "bgTitle": "Cho phép Koyun chạy nền",
+ "bgBody": "Để tiết kiệm pin, điện thoại có thể đóng Koyun khi chạy nền và làm mất kết nối. Nhấn \"Cho phép\" rồi chọn Cho phép trong hộp thoại hệ thống.",
+ "bgBodyRom": "Một số máy (Xiaomi, Huawei, OPPO, vivo...) còn cần: trong cài đặt ứng dụng đặt Tiết kiệm pin thành \"Không hạn chế\" và bật Tự khởi động.",
+ "bgAllow": "Cho phép"
 }
