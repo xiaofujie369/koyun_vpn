@@ -84,6 +84,7 @@ jobs:
       # 真实走一遍：装线上 1.1.6（用户目录版）→ 升级到新版 → 服务 / 权限 / TUN / 联网 → 卸载
       - name: 测试安装、后台服务和 TUN
         shell: pwsh
+        timeout-minutes: 20
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

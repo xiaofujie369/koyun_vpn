@@ -7,7 +7,9 @@ function Check($ok, $msg) {
   if ($ok) { Write-Host "✅ $msg" } else { Write-Host "❌ $msg"; $script:failed++ }
 }
 function Run-Setup($exe, $extra) {
-  $p = Start-Process $exe -ArgumentList (@('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') + $extra) -Wait -PassThru
+  # 不能用 -Wait：它连子进程一起等，而安装完会自动打开 Koyun（一直不退出）
+  $p = Start-Process $exe -ArgumentList (@('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') + $extra) -PassThru
+  if (-not $p.WaitForExit(600000)) { Write-Host "安装超过 10 分钟没结束"; $p.Kill(); return -1 }
   Start-Sleep 3
   Get-Process Koyun -ErrorAction SilentlyContinue | Stop-Process -Force   # 静默安装后会自动打开 App
   return $p.ExitCode
@@ -101,7 +103,10 @@ $code = Run-Setup $Setup @()
 Check ($code -eq 0 -and (Get-Service KoyunService).Status -eq 'Running') "覆盖安装后服务仍在运行"
 
 # 8. 卸载
-Start-Process "$new\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+$u = Start-Process "$new\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru
+$u.WaitForExit(300000) | Out-Null
+# 卸载程序会把自己复制到临时目录再运行，等真正的卸载结束
+for ($i = 0; $i -lt 60 -and (Test-Path "$new\unins000.exe"); $i++) { Start-Sleep 1 }
 Start-Sleep 3
 Check ($null -eq (Get-Service KoyunService -ErrorAction SilentlyContinue)) "卸载后服务已删除"
 Check (-not (Test-Path "$new\service-data")) "卸载后服务数据已删除"
