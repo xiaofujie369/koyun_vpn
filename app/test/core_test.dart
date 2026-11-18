@@ -103,6 +103,19 @@ void main() {
       expect((ConfigBuilder.build(opts(tun: true))['route'] as Map)['auto_detect_interface'], true);
     });
 
+    test('分应用代理：TUN 入站带上只代理 / 不代理的应用；没设置时不带', () {
+      Map tunOf(Map c) => (c['inbounds'] as List).cast<Map>().firstWhere((i) => i['type'] == 'tun');
+      final base = ConfigBuilder.build(opts(tun: true));
+      expect(tunOf(base).containsKey('include_package'), isFalse);
+      expect(tunOf(base).containsKey('exclude_package'), isFalse);
+      CoreOptions with_({List<String> inc = const [], List<String> exc = const []}) => CoreOptions(
+            nodes: nodes, selected: 'auto', ruleSetDir: 'rules', workDir: 'work', clashPort: 19090,
+            clashSecret: 's', tun: true, mobile: true, includePackages: inc, excludePackages: exc);
+      expect(tunOf(ConfigBuilder.build(with_(exc: ['com.tencent.mm'])))['exclude_package'], ['com.tencent.mm']);
+      expect(tunOf(ConfigBuilder.build(with_(inc: ['org.telegram.messenger', 'com.koyun.vpn'])))['include_package'],
+          ['org.telegram.messenger', 'com.koyun.vpn']);
+    });
+
     test('测速入口：每个节点一个用户，规则排在最前面', () {
       final cfg = ConfigBuilder.build(opts());
       final inbound = (cfg['inbounds'] as List).cast<Map>().firstWhere((i) => i['tag'] == 'test-in');

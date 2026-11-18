@@ -3,6 +3,7 @@ import 'dart:convert';
 /// 全局常量配置。改品牌 / 域名只需要改这里。
 class AppConfig {
   static const appName = 'Koyun';
+  static const androidPackage = 'com.koyun.vpn';
   /// 版本号启动时从安装包读取（来源 pubspec.yaml 的 version），只需要改 pubspec 一处。
   static String appVersion = '0.0.0';
 

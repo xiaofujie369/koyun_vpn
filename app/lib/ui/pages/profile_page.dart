@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../app.dart';
 import '../../app_config.dart';
 import '../../core/core_service.dart';
+import '../../services/autostart.dart';
 import '../../services/session.dart';
 import '../../services/storage.dart';
 import '../../services/updater.dart';
@@ -14,6 +15,7 @@ import '../theme.dart';
 import '../util.dart';
 import '../widgets/feedback_dialog.dart';
 import '../widgets/update_dialog.dart';
+import 'apps_proxy_page.dart';
 import 'home_shell.dart';
 import 'import_page.dart';
 import 'login_page.dart';
@@ -25,9 +27,12 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  bool? _autostart;
+
   @override
   void initState() {
     super.initState();
+    if (Autostart.supported) Autostart.enabled().then((v) => mounted ? setState(() => _autostart = v) : null);
     final s = context.read<Session>();
     if (s.guestConfig == null) s.loadGuestConfig();
   }
@@ -89,6 +94,32 @@ class _ProfilePageState extends State<ProfilePage> {
               await s.storage.setAutoConnect(v);
               setState(() {});
             }),
+            if (Autostart.supported && _autostart != null)
+              _SwitchItem(Icons.power_settings_new_rounded, t.autostart, t.autostartDesc, value: _autostart!,
+                  onChanged: (v) async {
+                await Autostart.set(v);
+                final now = await Autostart.enabled();
+                if (mounted) setState(() => _autostart = now);
+              }),
+            if (Platform.isWindows || Platform.isMacOS)
+              _SwitchItem(Icons.shield_outlined, t.proxyGuard, t.proxyGuardDesc, value: s.storage.proxyGuard,
+                  onChanged: (v) async {
+                await core.setProxyGuard(v);
+                setState(() {});
+              }),
+            if (Platform.isAndroid)
+              _Item(Icons.apps_rounded, t.perAppTitle,
+                  trailing: Text(
+                      switch (s.storage.perAppMode) {
+                        'bypass' => t.perAppBypass,
+                        'only' => t.perAppOnly,
+                        _ => t.perAppOff,
+                      },
+                      style: TextStyle(color: KColors.sub)),
+                  onTap: () async {
+                await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AppsProxyPage()));
+                if (mounted) setState(() {});
+              }),
             _SwitchItem(Icons.lan_outlined, 'IPv6', t.ipv6Desc, value: s.storage.ipv6, onChanged: (v) async {
               await s.storage.setIpv6(v);
               setState(() {});

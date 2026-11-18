@@ -43,7 +43,7 @@ Name: "{group}\Koyun"; Filename: "{app}\Koyun.exe"
 Name: "{autodesktop}\Koyun"; Filename: "{app}\Koyun.exe"; Tasks: desktopicon
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Koyun"; ValueData: """{app}\Koyun.exe"""; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Koyun"; ValueData: """{app}\Koyun.exe"" --autostart"; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
 ; 以安装前的普通用户身份打开 App（安装程序本身是管理员身份，App 不能跟着以管理员运行）
@@ -143,6 +143,6 @@ begin
   begin
     InstallService();
     if HadAutostart and not WizardIsTaskSelected('autostart') then
-      RegWriteStringValue(HKCU, RunKey, 'Koyun', '"' + ExpandConstant('{app}\Koyun.exe') + '"');
+      RegWriteStringValue(HKCU, RunKey, 'Koyun', '"' + ExpandConstant('{app}\Koyun.exe') + '" --autostart');
   end;
 end;

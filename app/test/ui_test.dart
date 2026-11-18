@@ -225,8 +225,39 @@ void main() {
     expect(Updater.isNewer('1.0.0', '1.0.1'), isFalse);
   });
 
+  testWidgets('节点按延迟排序：快的在前，没测的其次，不通的最后；关掉恢复原顺序', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (s, c) = await _services();
+    await c.storage.setSortByDelay(false);
+    final n = s.nodes;
+    c.delays
+      ..[n[0].tag] = -1
+      ..[n[1].tag] = 300
+      ..[n[3].tag] = 40;
+    await tester.pumpWidget(_app(s, c));
+    tester.state<HomeShellState>(find.byType(HomeShell)).goTo('nodes');
+    await tester.pump(const Duration(milliseconds: 500));
+    // 网格按行排：先比行（纵坐标），同一行再比列（横坐标）
+    double y(String name) {
+      final p = tester.getTopLeft(find.text(name).first);
+      return p.dy * 100000 + p.dx;
+    }
+    final a = n[0].plainName, b = n[1].plainName, d = n[3].plainName, u = n[2].plainName;
+    expect(y(a) <= y(b) && y(b) <= y(d), isTrue, reason: '默认按订阅顺序');
+    await tester.tap(find.byTooltip('按延迟排序'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(y(d) < y(b), isTrue, reason: '40ms 在 300ms 前面');
+    expect(y(b) <= y(u), isTrue, reason: '测过的在没测的前面');
+    expect(y(u) <= y(a), isTrue, reason: '不通的在最后');
+    await tester.tap(find.byTooltip('按延迟排序'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(y(a) <= y(b) && y(b) <= y(d), isTrue, reason: '关掉后恢复原顺序');
+  });
+
   // 915x570 默认窗口；720x480 最小窗口；600x440 小屏幕缩小后的窗口；两套主题都要过
-  for (final dark in [false, true])
+  for (final dark in [false, true]) {
   for (final size in const [Size(915, 570), Size(720, 480), Size(600, 440), Size(960, 640), Size(1400, 900), Size(390, 800)]) {
     testWidgets('所有页面无布局错误 ${size.width.toInt()}x${size.height.toInt()}${dark ? ' 黑色主题' : ''}', (tester) async {
       KColors.p = dark ? KPalette.darkTheme : KPalette.light;
@@ -285,5 +316,6 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 2));
     });
+  }
   }
 }

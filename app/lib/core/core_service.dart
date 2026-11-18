@@ -20,6 +20,7 @@ import 'config_builder.dart';
 import 'core_backend.dart';
 import 'desktop_backend.dart';
 import 'mobile_backend.dart';
+import 'sys_proxy.dart';
 
 /// 连接控制：生成配置 → 启动内核 → 通过 Clash API 切节点 / 测速 / 读网速。
 class CoreService extends ChangeNotifier {
@@ -303,6 +304,23 @@ class CoreService extends ChangeNotifier {
 
   int _mixedPortPending = 0;
 
+  /// 安卓分应用代理的包名列表。“只代理所选”时把 Koyun 自己也加上（App 登录、刷新订阅要走代理）；
+  /// “所选不走代理”时不能排除自己
+  List<String> _perApp(String mode) {
+    if (!Platform.isAndroid || storage.perAppMode != mode) return const [];
+    final list = storage.perAppList.where((p) => p != AppConfig.androidPackage).toList();
+    if (list.isEmpty) return const [];
+    return mode == 'only' ? [...list, AppConfig.androidPackage] : list;
+  }
+
+  /// 改了分应用代理设置：连接中就重新连接生效
+  Future<void> setPerApp(String mode, List<String> list) async {
+    await storage.setPerAppMode(mode);
+    await storage.setPerAppList(list);
+    if (running) await connect();
+    notifyListeners();
+  }
+
   static bool _isTunAdapterError(String m) =>
       m.contains('configure tun interface') || m.contains('create adapter') || m.contains('open existing adapter');
 
@@ -323,6 +341,8 @@ class CoreService extends ChangeNotifier {
       clashSecret: secret,
       tun: tun,
       tunName: tunName,
+      includePackages: _perApp('only'),
+      excludePackages: _perApp('bypass'),
       mixedPort: isMobile ? null : mixedPort,
       routeMode: storage.routeMode,
       ipv6: storage.ipv6,
@@ -383,6 +403,41 @@ class CoreService extends ChangeNotifier {
     return false;
   }
 
+  /// 系统代理守卫（参考 Clash Verge）：系统代理模式下每 10 秒检查一次，
+  /// 被其他软件（加速器、浏览器插件等）改掉就改回来——客户看到的就是“突然掉线”
+  Timer? _guardTimer;
+  DateTime? _guardReportedAt;
+  void _startProxyGuard() {
+    _guardTimer?.cancel();
+    final port = mixedPort;
+    if (isMobile || storage.tunMode || port == null || !storage.proxyGuard) return;
+    var busy = false;
+    _guardTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+      if (busy || status != CoreStatus.running || mixedPort != port || !storage.proxyGuard) return;
+      busy = true;
+      try {
+        if (!await SysProxy.isOurs(port) && status == CoreStatus.running && mixedPort == port) {
+          await SysProxy.enable(port);
+          backend.addLog('[代理守卫] 系统代理被其他软件改掉，已恢复');
+          final now = DateTime.now();
+          if (_guardReportedAt == null || now.difference(_guardReportedAt!) > const Duration(minutes: 30)) {
+            _guardReportedAt = now;
+            Reporter.instance.event('proxy_guard', {});
+          }
+        }
+      } catch (_) {
+      } finally {
+        busy = false;
+      }
+    });
+  }
+
+  Future<void> setProxyGuard(bool v) async {
+    await storage.setProxyGuard(v);
+    v && running ? _startProxyGuard() : _guardTimer?.cancel();
+    notifyListeners();
+  }
+
   /// 连接期间每分钟检查一次；连续 2 次不通就提示“节点连不上了”。
   /// 自动选择模式下顺便让它重新选节点
   void _startHealthCheck(ClashApi api) {
@@ -410,6 +465,7 @@ class CoreService extends ChangeNotifier {
     unawaited(api.setMode(ConfigBuilder.clashMode(storage.routeMode)).catchError((_) {}));
     _watchTraffic(api);
     _startHealthCheck(api);
+    _startProxyGuard();
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       try {
@@ -458,6 +514,7 @@ class CoreService extends ChangeNotifier {
     connectedAt = null;
     _stopWatchers();
     _healthTimer?.cancel();
+    _guardTimer?.cancel();
     nodeUnreachable = false;
     _api?.close();
     _api = null;

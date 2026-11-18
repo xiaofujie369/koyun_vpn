@@ -15,6 +15,7 @@ import 'api/xboard_api.dart';
 import 'app.dart';
 import 'app_config.dart';
 import 'core/core_service.dart';
+import 'services/autostart.dart';
 import 'services/session.dart';
 import 'services/storage.dart';
 import 'services/bootstrap.dart';
@@ -82,10 +83,13 @@ Future<void> main(List<String> args) async {
         windowButtonVisibility: Platform.isMacOS,
       ),
       () async {
+        // 开机自启（--autostart）：只在托盘里运行，不弹主窗口
+        if (args.contains(Autostart.flag)) return;
         await windowManager.show();
         await windowManager.focus();
       },
     );
+    unawaited(Autostart.migrate());
     await windowManager.setPreventClose(true);
   }
 
@@ -169,23 +173,52 @@ class DesktopShell with TrayListener, WindowListener {
     );
     if (!Platform.isLinux) await trayManager.setToolTip(AppConfig.appName);
     core.addListener(_updateMenu);
+    core.session.addListener(_updateMenu);
     await _updateMenu();
   }
 
-  bool? _lastRunning;
+  String? _menuSig;
+
+  /// 托盘菜单（参考 FlClash / Clash Verge）：连接、分流模式、TUN、选节点都能在托盘里完成
   Future<void> _updateMenu() async {
-    if (_lastRunning == core.running) return;
-    _lastRunning = core.running;
+    final st = core.storage;
+    final nodes = core.session.nodes;
+    final sig = [
+      core.running, core.busy, st.routeMode.name, st.tunMode, core.selected,
+      nodes.length, nodes.isEmpty ? '' : nodes.first.tag, nodes.isEmpty ? '' : nodes.last.tag,
+    ].join('|');
+    if (sig == _menuSig) return;
+    _menuSig = sig;
     final zh = Platform.localeName.startsWith('zh');
+    String l(String z, String e) => zh ? z : e;
+    final mode = st.routeMode;
     await trayManager.setContextMenu(Menu(items: [
-      MenuItem(key: 'show', label: zh ? '打开主界面' : 'Open'),
+      MenuItem(key: 'show', label: l('打开主界面', 'Open')),
       MenuItem.separator(),
       MenuItem(
         key: 'toggle',
-        label: core.running ? (zh ? '断开连接' : 'Disconnect') : (zh ? '连接' : 'Connect'),
+        label: core.running ? l('断开连接', 'Disconnect') : l('连接', 'Connect'),
+        disabled: core.busy,
       ),
       MenuItem.separator(),
-      MenuItem(key: 'quit', label: zh ? '退出' : 'Quit'),
+      MenuItem.checkbox(key: 'mode:rule', label: l('智能分流', 'Rule'), checked: mode == RouteMode.rule),
+      MenuItem.checkbox(key: 'mode:global', label: l('全局', 'Global'), checked: mode == RouteMode.global),
+      MenuItem.checkbox(key: 'mode:direct', label: l('直连', 'Direct'), checked: mode == RouteMode.direct),
+      MenuItem.separator(),
+      MenuItem.checkbox(key: 'tun', label: l('TUN 模式', 'TUN mode'), checked: st.tunMode, disabled: core.busy),
+      if (nodes.isNotEmpty)
+        MenuItem.submenu(
+          key: 'nodes',
+          label: l('节点', 'Servers'),
+          submenu: Menu(items: [
+            MenuItem.checkbox(key: 'node:auto', label: l('自动选择', 'Auto'), checked: core.selected == 'auto'),
+            MenuItem.separator(),
+            for (var i = 0; i < nodes.length && i < 80; i++)
+              MenuItem.checkbox(key: 'node:$i', label: nodes[i].plainName, checked: core.selected == nodes[i].tag),
+          ]),
+        ),
+      MenuItem.separator(),
+      MenuItem(key: 'quit', label: l('退出', 'Quit')),
     ]));
   }
 
@@ -208,6 +241,19 @@ class DesktopShell with TrayListener, WindowListener {
         await core.toggle();
       case 'quit':
         await quit();
+      case 'tun':
+        await core.setTunMode(!core.storage.tunMode);
+      case 'node:auto':
+        await core.selectNode('auto');
+      default:
+        final k = item.key ?? '';
+        if (k.startsWith('mode:')) {
+          await core.setRouteMode(RouteMode.values.byName(k.substring(5)));
+        } else if (k.startsWith('node:')) {
+          final i = int.tryParse(k.substring(5));
+          final nodes = core.session.nodes;
+          if (i != null && i < nodes.length) await core.selectNode(nodes[i].tag);
+        }
     }
   }
 

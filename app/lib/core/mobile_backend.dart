@@ -96,6 +96,20 @@ class MobileBackend extends CoreBackend {
     } catch (_) {}
   }
 
+  /// 已安装的、能联网的应用：[{pkg, name, system}]
+  Future<List<Map<String, dynamic>>> installedApps() async {
+    final r = await _ch.invokeMethod<List>('installedApps') ?? const [];
+    return [for (final e in r) Map<String, dynamic>.from(e as Map)];
+  }
+
+  Future<Uint8List?> appIcon(String pkg) async {
+    try {
+      return await _ch.invokeMethod<Uint8List>('appIcon', {'pkg': pkg});
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 手机厂商（小写），用来给出对应系统的设置提示
   Future<String> brand() async {
     try {

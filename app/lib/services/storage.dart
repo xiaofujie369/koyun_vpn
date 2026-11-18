@@ -137,6 +137,20 @@ class Storage {
   Future<void> setAutoConnect(bool v) => _p.setBool('auto_connect', v);
 
   /// 界面语言："" 表示跟随系统
+  /// 安卓分应用代理：off 关闭 / bypass 所选应用不走代理 / only 只有所选应用走代理
+  String get perAppMode => _p.getString('per_app_mode') ?? 'off';
+  Future<void> setPerAppMode(String v) => _p.setString('per_app_mode', v);
+  List<String> get perAppList => _p.getStringList('per_app_list') ?? const [];
+  Future<void> setPerAppList(List<String> v) => _p.setStringList('per_app_list', v);
+
+  /// 节点列表按延迟排序
+  bool get sortByDelay => _p.getBool('sort_delay') ?? false;
+  Future<void> setSortByDelay(bool v) => _p.setBool('sort_delay', v);
+
+  /// 系统代理守卫：被其他软件改掉时自动恢复（默认开）
+  bool get proxyGuard => _p.getBool('proxy_guard') ?? true;
+  Future<void> setProxyGuard(bool v) => _p.setBool('proxy_guard', v);
+
   /// 主题：system 跟随系统（默认）/ light 白色 / dark 黑色
   String get themeMode => _p.getString('theme_mode') ?? 'system';
   Future<void> setThemeMode(String v) => _p.setString('theme_mode', v);

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -59,6 +60,15 @@ class _NodesPageState extends State<NodesPage> {
             (_region.isEmpty || (n.countryCode ?? '?') == _region) &&
             (q.isEmpty || n.displayName.toLowerCase().contains(q)))
         .toList();
+    // 按延迟排序（参考 FlClash / Verge）：测通的从快到慢，没测的其次，不通的最后
+    final byDelay = core.storage.sortByDelay;
+    if (byDelay) {
+      int rank(ProxyNode n) {
+        final d = core.delays[n.tag];
+        return d == null ? 1 << 30 : (d <= 0 ? 1 << 31 : d);
+      }
+      mergeSort(nodes, compare: (a, b) => rank(a).compareTo(rank(b)));
+    }
     final showAuto = q.isEmpty && _region.isEmpty;
     final locale = Localizations.localeOf(context);
 
@@ -80,6 +90,16 @@ class _NodesPageState extends State<NodesPage> {
                 ),
               ]),
             ),
+            IconButton.filledTonal(
+              tooltip: t.sortByDelay,
+              isSelected: byDelay,
+              onPressed: () async {
+                await core.storage.setSortByDelay(!byDelay);
+                setState(() {});
+              },
+              icon: const Icon(Icons.sort_rounded),
+            ),
+            const SizedBox(width: 8),
             IconButton.filledTonal(
               tooltip: t.testLatency,
               onPressed: core.testing ? null : core.testAll,

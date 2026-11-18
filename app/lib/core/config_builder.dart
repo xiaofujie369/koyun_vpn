@@ -21,6 +21,8 @@ class CoreOptions {
     this.testSecret = '',
     this.testerOnly = false,
     this.tunName,
+    this.includePackages = const [],
+    this.excludePackages = const [],
   });
 
   final List<ProxyNode> nodes;
@@ -47,6 +49,10 @@ class CoreOptions {
 
   /// TUN 网卡名。Windows 上次异常退出残留同名网卡时，换个名字重试
   final String? tunName;
+
+  /// 安卓分应用代理：只代理这些应用 / 这些应用不走代理（二选一）
+  final List<String> includePackages;
+  final List<String> excludePackages;
 }
 
 /// 生成 sing-box 1.14 配置。
@@ -117,6 +123,8 @@ class ConfigBuilder {
         'type': 'tun',
         'tag': 'tun-in',
         if (o.tunName != null) 'interface_name': o.tunName,
+        if (o.includePackages.isNotEmpty) 'include_package': o.includePackages,
+        if (o.excludePackages.isNotEmpty) 'exclude_package': o.excludePackages,
         'address': [
           '172.19.0.1/30',
           if (o.ipv6) 'fdfe:dcba:9876::1/126',

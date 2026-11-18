@@ -127,7 +127,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   });
-  for (final dark in [false, true])
+  for (final dark in [false, true]) {
   for (final page in ['home', 'nodes', 'profile']) {
     testWidgets('截图 $page${dark ? '-dark' : ''}', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
       KColors.p = dark ? KPalette.darkTheme : KPalette.light;
@@ -149,5 +149,6 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 2));
     });
+  }
   }
 }
