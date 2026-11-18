@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 设计语言（1.1.7）：白色 / 黑色两套主题，1px 细边框、小圆角、紧凑字号、单色图标，几乎不用阴影；
+/// 设计语言：默认 1.1.6 的奶白色主题，设置里可选深色；1px 细边框、小圆角、紧凑字号、单色图标，几乎不用阴影；
 /// 唯一的彩色是强调色（Logo 的紫色）和状态色。
 ///
 /// 颜色是“当前主题”的取值，切换主题时由 [ThemeController] 换一套并重建界面，
@@ -31,26 +31,27 @@ class KPalette {
   final Color bg, sidebar, surface, field, hover, border, ink, onInk, sub, faint;
   final Color accent, accentSoft, ok, okSoft, warn, warnSoft, danger, dangerSoft;
 
+  /// 1.1.6 的奶白色主题（默认）
   static const light = KPalette(
     dark: false,
-    bg: Color(0xFFFFFFFF),
-    sidebar: Color(0xFFF7F7F8),
+    bg: Color(0xFFFAF8F4),
+    sidebar: Color(0xFFF3F0EA),
     surface: Color(0xFFFFFFFF),
-    field: Color(0xFFF3F3F5),
-    hover: Color(0xFFEAEAEE),
-    border: Color(0xFFE6E6EA),
-    ink: Color(0xFF111113),
+    field: Color(0xFFF5F3EE),
+    hover: Color(0xFFEDEAE3),
+    border: Color(0xFFE6E2D9),
+    ink: Color(0xFF1F1D1A),
     onInk: Color(0xFFFFFFFF),
-    sub: Color(0xFF5E5E66),
-    faint: Color(0xFF8B8B93),
-    accent: Color(0xFF6D5BD0),
-    accentSoft: Color(0xFFF1EEFC),
-    ok: Color(0xFF15803D),
-    okSoft: Color(0xFFE7F5EC),
-    warn: Color(0xFFA16207),
-    warnSoft: Color(0xFFFFF4E0),
-    danger: Color(0xFFDC2626),
-    dangerSoft: Color(0xFFFDECEC),
+    sub: Color(0xFF6F6A61),
+    faint: Color(0xFFA59F94),
+    accent: Color(0xFF7C6BD6),
+    accentSoft: Color(0xFFEFEBFB),
+    ok: Color(0xFF2F9E6B),
+    okSoft: Color(0xFFE6F4EC),
+    warn: Color(0xFFC98A1C),
+    warnSoft: Color(0xFFFBF2DF),
+    danger: Color(0xFFD1453B),
+    dangerSoft: Color(0xFFFBE7E5),
   );
 
   static const darkTheme = KPalette(
@@ -262,7 +263,7 @@ ThemeData buildTheme() {
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.all(Colors.white),
       trackColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? KColors.accent : KColors.hover),
+          (s) => s.contains(WidgetState.selected) ? KColors.ink : KColors.hover),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       thumbIcon: WidgetStateProperty.all(const Icon(null)),
     ),

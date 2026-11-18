@@ -212,13 +212,8 @@
  "bgBodyRom": "Một số máy (Xiaomi, Huawei, OPPO, vivo...) còn cần: trong cài đặt ứng dụng đặt Tiết kiệm pin thành \"Không hạn chế\" và bật Tự khởi động.",
  "bgAllow": "Cho phép",
  "errMacNotAdmin": "Chế độ TUN cần tài khoản quản trị viên trên máy Mac. Hãy đăng nhập bằng quản trị viên hoặc tạm tắt chế độ TUN.",
- "themeLight": "Giao diện sáng",
- "themeDark": "Giao diện tối",
- "winMinimize": "Thu nhỏ",
- "winClose": "Đóng",
- "dataLeft": "Dữ liệu còn lại",
- "expireOn": "Hết hạn {d}",
- "noticeTitle": "Thông báo",
+ "themeLight": "Sáng (mặc định)",
+ "themeDark": "Tối",
  "autostart": "Khởi động cùng máy",
  "autostartDesc": "Chạy ẩn ở khay hệ thống sau khi đăng nhập, không mở cửa sổ",
  "proxyGuard": "Bảo vệ proxy hệ thống",
@@ -236,5 +231,6 @@
  "perAppClear": "Xóa",
  "perAppShowSystem": "Hiện ứng dụng hệ thống",
  "perAppSelected": "Đã chọn {n}",
- "perAppSave": "Lưu"
+ "perAppSave": "Lưu",
+ "appearance": "Giao diện"
 }

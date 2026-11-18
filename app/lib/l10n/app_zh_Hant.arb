@@ -212,13 +212,8 @@
  "bgBodyRom": "部分手機（小米、華為、OPPO、vivo 等）還需要：在應用程式設定裡把「省電策略」設為「無限制」，並開啟「自啟動」。",
  "bgAllow": "去允許",
  "errMacNotAdmin": "TUN 模式需要電腦的管理員帳號。請改用管理員帳號登入 Mac，或先關閉 TUN 模式使用。",
- "themeLight": "白色主題",
- "themeDark": "黑色主題",
- "winMinimize": "最小化",
- "winClose": "關閉",
- "dataLeft": "剩餘流量",
- "expireOn": "到期 {d}",
- "noticeTitle": "公告",
+ "themeLight": "淺色（預設）",
+ "themeDark": "深色",
  "autostart": "開機自動啟動",
  "autostartDesc": "開機後在系統匣靜默執行，不彈出視窗",
  "proxyGuard": "系統代理守衛",
@@ -236,5 +231,6 @@
  "perAppClear": "清空",
  "perAppShowSystem": "顯示系統應用",
  "perAppSelected": "已選 {n} 個",
- "perAppSave": "儲存"
+ "perAppSave": "儲存",
+ "appearance": "外觀"
 }

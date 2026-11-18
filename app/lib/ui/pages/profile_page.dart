@@ -89,6 +89,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 trailing: Text(_langName(context, s.storage.localeOverride),
                     style: TextStyle(color: KColors.sub)),
                 onTap: () => _pickLanguage(context, s.storage)),
+            _Item(Icons.palette_outlined, t.appearance,
+                trailing: Text(
+                    switch (context.watch<ThemeController>().mode) {
+                      ThemeMode.dark => t.themeDark,
+                      ThemeMode.system => t.followSystem,
+                      _ => t.themeLight,
+                    },
+                    style: TextStyle(color: KColors.sub)),
+                onTap: () => _pickTheme(context)),
             _SwitchItem(Icons.flash_on_rounded, t.autoConnect, t.autoConnectDesc,
                 value: s.storage.autoConnect, onChanged: (v) async {
               await s.storage.setAutoConnect(v);
@@ -220,6 +229,30 @@ class _ProfilePageState extends State<ProfilePage> {
     if (picked == null) return;
     await storage.setLocaleOverride(picked);
     localeNotifier.value = localeFromCode(picked);
+  }
+
+  /// 外观：浅色（默认，1.1.6 的奶白色）/ 深色 / 跟随系统
+  Future<void> _pickTheme(BuildContext context) async {
+    final t = context.t;
+    final theme = context.read<ThemeController>();
+    final picked = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          for (final (m, label) in [
+            (ThemeMode.light, t.themeLight),
+            (ThemeMode.dark, t.themeDark),
+            (ThemeMode.system, t.followSystem),
+          ])
+            ListTile(
+              title: Text(label),
+              trailing: theme.mode == m ? const Icon(Icons.check_rounded) : null,
+              onTap: () => Navigator.pop(c, m),
+            ),
+        ]),
+      ),
+    );
+    if (picked != null) theme.setMode(picked);
   }
 
   void _showLogs(BuildContext context, CoreService core) {

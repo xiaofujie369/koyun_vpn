@@ -64,7 +64,7 @@ Future<void> main(List<String> args) async {
   final core = CoreService(storage, session);
   final ip = IpService(core);
   final theme = ThemeController(
-    switch (storage.themeMode) { 'light' => ThemeMode.light, 'dark' => ThemeMode.dark, _ => ThemeMode.system },
+    switch (storage.themeMode) { 'dark' => ThemeMode.dark, 'system' => ThemeMode.system, _ => ThemeMode.light },
     onSave: (m) => storage.setThemeMode(m.name),
   )..init(WidgetsBinding.instance.platformDispatcher.platformBrightness);
 
@@ -78,9 +78,6 @@ Future<void> main(List<String> args) async {
         center: true,
         title: AppConfig.appName,
         backgroundColor: KColors.bg,
-        // 自己画标题栏（Windows 右上角放最小化 / 关闭；macOS 保留红绿灯）
-        titleBarStyle: TitleBarStyle.hidden,
-        windowButtonVisibility: Platform.isMacOS,
       ),
       () async {
         // 开机自启（--autostart）：只在托盘里运行，不弹主窗口
@@ -275,11 +272,11 @@ class DesktopShell with TrayListener, WindowListener {
   }
 }
 
-/// 默认窗口 915×570（一屏放下首页）。屏幕可用区域放不下时按比例缩小，
+/// 默认窗口 900×600（和 1.1.6 一样）。屏幕可用区域放不下时按比例缩小，
 /// 保证在 1366×768 + 125% 缩放这类小屏幕上也能完整显示
 Future<(Size, Size)> _windowSize() async {
-  const want = Size(915, 570);
-  const minWant = Size(720, 480);
+  const want = Size(900, 600);
+  const minWant = Size(760, 500);
   try {
     final d = await screenRetriever.getPrimaryDisplay();
     final avail = d.visibleSize ?? d.size; // 逻辑像素，已去掉任务栏

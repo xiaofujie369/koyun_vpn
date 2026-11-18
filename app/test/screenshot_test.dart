@@ -107,7 +107,7 @@ Future<void> _loadFonts() async {
 void main() {
   setUpAll(_loadFonts);
   testWidgets('截图 导入本地文件', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
-    tester.view.physicalSize = const Size(915, 570);
+    tester.view.physicalSize = const Size(900, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     AppConfig.bootConvert = 'https://convert.example.com';
@@ -132,7 +132,7 @@ void main() {
     testWidgets('截图 $page${dark ? '-dark' : ''}', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
       KColors.p = dark ? KPalette.darkTheme : KPalette.light;
       addTearDown(() => KColors.p = KPalette.light);
-      tester.view.physicalSize = const Size(915, 570);
+      tester.view.physicalSize = const Size(900, 600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final (s, c) = await _services();

@@ -212,13 +212,8 @@
  "bgBodyRom": "일부 휴대폰(Xiaomi, Huawei, OPPO, vivo 등)은 앱 설정에서 배터리 절약을 \"제한 없음\"으로 하고 자동 시작을 켜야 합니다.",
  "bgAllow": "허용",
  "errMacNotAdmin": "TUN 모드는 Mac 관리자 계정이 필요합니다. 관리자 계정으로 로그인하거나 TUN 모드를 끄고 사용하세요.",
- "themeLight": "밝은 테마",
- "themeDark": "어두운 테마",
- "winMinimize": "최소화",
- "winClose": "닫기",
- "dataLeft": "남은 데이터",
- "expireOn": "만료 {d}",
- "noticeTitle": "공지",
+ "themeLight": "밝게(기본)",
+ "themeDark": "어둡게",
  "autostart": "로그인 시 시작",
  "autostartDesc": "로그인 후 창 없이 트레이에서 실행",
  "proxyGuard": "시스템 프록시 보호",
@@ -236,5 +231,6 @@
  "perAppClear": "지우기",
  "perAppShowSystem": "시스템 앱 표시",
  "perAppSelected": "{n}개 선택",
- "perAppSave": "저장"
+ "perAppSave": "저장",
+ "appearance": "화면 모드"
 }

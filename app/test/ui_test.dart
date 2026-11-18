@@ -256,10 +256,10 @@ void main() {
     expect(y(a) <= y(b) && y(b) <= y(d), isTrue, reason: '关掉后恢复原顺序');
   });
 
-  // 915x570 默认窗口；720x480 最小窗口；600x440 小屏幕缩小后的窗口；两套主题都要过
+  // 900x600 默认窗口；760x500 最小窗口；600x440 小屏幕缩小后的窗口；浅色 / 深色都要过
   for (final dark in [false, true]) {
-  for (final size in const [Size(915, 570), Size(720, 480), Size(600, 440), Size(960, 640), Size(1400, 900), Size(390, 800)]) {
-    testWidgets('所有页面无布局错误 ${size.width.toInt()}x${size.height.toInt()}${dark ? ' 黑色主题' : ''}', (tester) async {
+  for (final size in const [Size(900, 600), Size(760, 500), Size(600, 440), Size(960, 640), Size(1400, 900), Size(390, 800)]) {
+    testWidgets('所有页面无布局错误 ${size.width.toInt()}x${size.height.toInt()}${dark ? ' 深色' : ''}', (tester) async {
       KColors.p = dark ? KPalette.darkTheme : KPalette.light;
       addTearDown(() => KColors.p = KPalette.light);
       tester.view.physicalSize = size;

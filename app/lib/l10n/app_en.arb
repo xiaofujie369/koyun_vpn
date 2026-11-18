@@ -212,13 +212,8 @@
  "bgBodyRom": "Some phones (Xiaomi, Huawei, OPPO, vivo, etc.) also need: in app settings set Battery saver to \"No restrictions\" and turn on Autostart.",
  "bgAllow": "Allow",
  "errMacNotAdmin": "TUN mode needs an administrator account on this Mac. Sign in as an administrator, or turn off TUN mode for now.",
- "themeLight": "Light theme",
- "themeDark": "Dark theme",
- "winMinimize": "Minimize",
- "winClose": "Close",
- "dataLeft": "Data left",
- "expireOn": "Expires {d}",
- "noticeTitle": "Notices",
+ "themeLight": "Light (default)",
+ "themeDark": "Dark",
  "autostart": "Start at login",
  "autostartDesc": "Runs quietly in the tray after login, no window",
  "proxyGuard": "System proxy guard",
@@ -236,5 +231,6 @@
  "perAppClear": "Clear",
  "perAppShowSystem": "Show system apps",
  "perAppSelected": "{n} selected",
- "perAppSave": "Save"
+ "perAppSave": "Save",
+ "appearance": "Appearance"
 }

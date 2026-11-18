@@ -151,8 +151,8 @@ class Storage {
   bool get proxyGuard => _p.getBool('proxy_guard') ?? true;
   Future<void> setProxyGuard(bool v) => _p.setBool('proxy_guard', v);
 
-  /// 主题：system 跟随系统（默认）/ light 白色 / dark 黑色
-  String get themeMode => _p.getString('theme_mode') ?? 'system';
+  /// 主题：light 奶白（默认，和 1.1.6 一样）/ dark 深色 / system 跟随系统
+  String get themeMode => _p.getString('theme_mode') ?? 'light';
   Future<void> setThemeMode(String v) => _p.setString('theme_mode', v);
 
   String get localeOverride => _p.getString('locale') ?? '';
