@@ -121,6 +121,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final friendly = switch (core.errorKind) {
       'nodeUnreachable' => t.errNodeUnreachable,
       'tunAdapter' => t.errTunAdapter,
+      'macNotAdmin' => t.errMacNotAdmin,
       _ => null,
     };
     showDialog(

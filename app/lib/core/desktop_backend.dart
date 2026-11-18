@@ -6,20 +6,26 @@ import '../services/reporter.dart';
 import 'config_builder.dart';
 import 'core_backend.dart';
 import 'sys_proxy.dart';
+import 'win_service.dart';
 
 /// 桌面端：以子进程方式运行随 App 打包的 sing-box 可执行文件。
 ///
 /// * 系统代理模式：普通权限即可。
-/// * TUN 模式：Windows 需要管理员（引导以管理员重启）；
-///   macOS 通过系统授权弹窗以 root 启动内核，用"标记文件"控制停止，免二次输密码。
+/// * TUN 模式：
+///   - Windows：交给安装时注册的后台服务（koyun-service，SYSTEM 身份）启动内核，不弹管理员确认；
+///     便携版没有服务，退回“以管理员身份重启”。
+///   - macOS：第一次输入一次密码，把内核复制到 /Library/Application Support/Koyun 并设为 root 运行
+///     （和 FlClash 的做法一样），以后直接启动；内核版本变了才需要再授权。
 class DesktopBackend extends CoreBackend {
   DesktopBackend(this.workDir);
   final String workDir;
 
   Process? _proc;
-  int _mixedPort = 0;
   bool _sysProxySet = false;
-  bool _macRootMode = false;
+  // Windows：通过后台服务运行内核
+  WinService? _svc;
+  Timer? _svcPoll;
+  int _svcLogNext = 0;
   final _status = StreamController<CoreStatus>.broadcast();
   final List<String> _logs = [];
   bool _stopping = false;
@@ -27,7 +33,10 @@ class DesktopBackend extends CoreBackend {
   String get _pidFile => '$workDir/core.pid';
   String get _macFlag => '$workDir/core.run';
   String get _configPath => '$workDir/config.json';
-  String get _logPath => '$workDir/core.log';
+
+  static const _macHelperDir = '/Library/Application Support/Koyun';
+  static const _macHelper = '$_macHelperDir/sing-box';
+  bool? _macHelperOk;
 
   String get binaryPath {
     final dir = File(Platform.resolvedExecutable).parent.path;
@@ -80,15 +89,15 @@ class DesktopBackend extends CoreBackend {
   Stream<CoreStatus> get externalStatus => _status.stream;
 
   @override
-  Future<bool> isRunning() async => _proc != null || (_macRootMode && File(_macFlag).existsSync());
+  Future<bool> isRunning() async => _proc != null || _svc != null;
 
   @override
   Future<bool> prepare() async => true;
 
   @override
   Future<bool> tunAvailable() async {
-    if (Platform.isWindows) return _isWindowsAdmin();
-    return true; // macOS 启动时弹系统授权
+    if (Platform.isWindows) return await WinService.connect() != null || await _isWindowsAdmin();
+    return true; // macOS 第一次开 TUN 时弹系统授权
   }
 
   static Future<bool> _isWindowsAdmin() async {
@@ -126,8 +135,16 @@ class DesktopBackend extends CoreBackend {
       }
       await pf.delete().catchError((_) => pf);
     }
+    // 旧版 macOS 的 root 守护脚本靠这个标记文件运行，删掉它旧内核就会退出
     final flag = File(_macFlag);
     if (await flag.exists()) await flag.delete();
+    // 上次 App 异常退出时服务里的内核可能还在跑（TUN 一直开着），先停掉
+    final svc = await WinService.connect();
+    if (svc != null) {
+      try {
+        if ((await svc.status()).$1) await svc.stop();
+      } catch (_) {}
+    }
     // 2. 恢复系统代理（只在指向我们端口时）
     final ports = <int>{17890};
     try {
@@ -144,21 +161,31 @@ class DesktopBackend extends CoreBackend {
     await stop();
     _logs.clear();
     _stopping = false;
-    _mixedPort = mixedPort;
     await File(_configPath).writeAsString(configJson, flush: true);
     await File('$workDir/port').writeAsString('$mixedPort');
 
     if (!File(binaryPath).existsSync()) {
       throw CoreStartException('sing-box not found: $binaryPath');
     }
-    if (tun && Platform.isWindows && !await _isWindowsAdmin()) {
-      throw CoreStartException('need admin', needAdmin: true);
+    WinService? svc;
+    if (tun && Platform.isWindows) {
+      svc = await WinService.connect();
+      if (svc == null && !await _isWindowsAdmin()) {
+        throw CoreStartException('need admin', needAdmin: true);
+      }
     }
 
-    if (tun && Platform.isMacOS) {
-      await _startMacRoot();
+    if (svc != null) {
+      await _startViaService(svc, configJson);
     } else {
-      final p = await Process.start(binaryPath, ['run', '-c', _configPath, '-D', workDir],
+      var bin = binaryPath;
+      if (tun && Platform.isMacOS) {
+        await _ensureMacHelper();
+        bin = _macHelper;
+        // 先以普通用户创建：否则文件归 root 所有，之后切回系统代理模式内核打不开缓存
+        await File('$workDir/cache.db').create();
+      }
+      final p = await Process.start(bin, ['run', '-c', _configPath, '-D', workDir],
           workingDirectory: workDir, environment: ConfigBuilder.coreEnv);
       _proc = p;
       await File(_pidFile).writeAsString('${p.pid}');
@@ -194,43 +221,95 @@ class DesktopBackend extends CoreBackend {
     }
   }
 
-  Future<void> _startMacRoot() async {
-    final script = File('$workDir/run-root.sh');
-    await script.writeAsString(r'''#!/bin/sh
-BIN="$1"; CFG="$2"; DIR="$3"; FLAG="$4"; LOG="$5"; PIDF="$6"
-export ENABLE_DEPRECATED_MISSING_DOMAIN_RESOLVER=true
-"$BIN" run -c "$CFG" -D "$DIR" > "$LOG" 2>&1 &
-P=$!
-echo $P > "$PIDF"
-while [ -f "$FLAG" ] && kill -0 $P 2>/dev/null; do sleep 1; done
-kill $P 2>/dev/null
-sleep 2
-kill -9 $P 2>/dev/null
-rm -f "$FLAG"
-''');
-    await File(_macFlag).writeAsString('1');
-    // 先以普通用户创建：否则文件归 root 所有，之后切回系统代理模式内核打不开缓存
-    await File('$workDir/cache.db').create();
-    await File(_logPath).create();
+  /// Windows：服务启动内核，每秒取一次日志和状态（内核意外退出时通知上层）
+  Future<void> _startViaService(WinService svc, String configJson) async {
+    try {
+      _svcLogNext = (await svc.logs(1 << 30)).$2; // 只要这次启动之后的日志
+    } catch (_) {
+      _svcLogNext = 0;
+    }
+    try {
+      await svc.start(configJson);
+    } on ServiceStartError catch (e) {
+      await _pullServiceLogs(svc);
+      throw CoreStartException(e.message.replaceFirst(RegExp(r'^.*?(FATAL|ERROR)\]?\s*'), ''));
+    } catch (e) {
+      throw CoreStartException('koyun service: $e');
+    }
+    _svc = svc;
+    _addLog('[服务] 内核已由 Koyun 后台服务启动');
+    var busy = false;
+    _svcPoll = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (busy || _svc != svc) return;
+      busy = true;
+      try {
+        await _pullServiceLogs(svc);
+        final (running, _) = await svc.status();
+        if (!running && _svc == svc && !_stopping) {
+          _svc = null;
+          _svcPoll?.cancel();
+          _addLog('core exited (service)');
+          Reporter.instance.event('core_exit', {'service': true, 'error': _lastError()});
+          _status.add(CoreStatus.stopped);
+        }
+      } catch (_) {
+        // 服务暂时没响应（比如正在重启），下一秒再试
+      } finally {
+        busy = false;
+      }
+    });
+  }
+
+  Future<void> _pullServiceLogs(WinService svc) async {
+    final (lines, next) = await svc.logs(_svcLogNext);
+    _svcLogNext = next;
+    lines.forEach(_onCoreLine);
+  }
+
+  /// macOS：确保 /Library/Application Support/Koyun/sing-box 是 root 所有、带 setuid、
+  /// 且和 App 里的内核一模一样；否则弹一次系统授权窗口安装它
+  Future<void> _ensureMacHelper() async {
+    if (_macHelperOk == true || await _macHelperReady()) {
+      _macHelperOk = true;
+      return;
+    }
+    final groups = await Process.run('id', ['-Gn']);
+    if (!groups.stdout.toString().split(RegExp(r'\s+')).contains('admin')) {
+      throw CoreStartException('TUN needs an administrator account', kind: 'macNotAdmin');
+    }
     String q(String s) => "'${s.replaceAll("'", "'\\''")}'";
-    final cmd = '/bin/sh ${q(script.path)} ${q(binaryPath)} ${q(_configPath)} '
-        '${q(workDir)} ${q(_macFlag)} ${q(_logPath)} ${q('$workDir/core-root.pid')} '
-        '> /dev/null 2>&1 &';
-    final apple = 'do shell script "${cmd.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}" '
+    final tmp = '$_macHelper.tmp';
+    final script = 'set -e; mkdir -p ${q(_macHelperDir)}; chown root:wheel ${q(_macHelperDir)}; '
+        'chmod 755 ${q(_macHelperDir)}; cp -f ${q(binaryPath)} ${q(tmp)}; '
+        'chown root:admin ${q(tmp)}; chmod 4750 ${q(tmp)}; xattr -c ${q(tmp)} || true; '
+        'mv -f ${q(tmp)} ${q(_macHelper)}';
+    final apple = 'do shell script "${script.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}" '
         'with administrator privileges';
     final r = await Process.run('osascript', ['-e', apple]);
-    if (r.exitCode != 0) {
-      await File(_macFlag).delete().catchError((_) => File(_macFlag));
-      throw CoreStartException('authorization cancelled');
+    if (r.exitCode != 0) throw CoreStartException('authorization cancelled');
+    _macHelperOk = await _macHelperReady();
+    if (_macHelperOk != true) throw CoreStartException('TUN helper install failed');
+  }
+
+  Future<bool> _macHelperReady() async {
+    try {
+      if (!File(_macHelper).existsSync()) return false;
+      final st = await Process.run('stat', ['-f', '%Su:%Sg %Sp', _macHelper]);
+      final out = st.stdout.toString().trim(); // root:admin -rwsr-x---
+      final mode = out.split(' ').last;
+      if (!out.startsWith('root:admin ') || mode.length < 10 || mode[3] != 's') return false;
+      final a = File(binaryPath), b = File(_macHelper);
+      if (a.lengthSync() != b.lengthSync()) return false;
+      final sums = await Process.run('shasum', ['-a', '256', binaryPath, _macHelper]);
+      final hashes = sums.stdout.toString().trim().split('\n').map((l) => l.split(' ').first).toList();
+      return hashes.length == 2 && hashes[0] == hashes[1];
+    } catch (_) {
+      return false;
     }
-    _macRootMode = true;
   }
 
   String _lastError() {
     final lines = [..._logs];
-    try {
-      if (_macRootMode) lines.addAll(File(_logPath).readAsLinesSync());
-    } catch (_) {}
     final err = lines.lastWhere((l) => l.contains('FATAL') || l.contains('ERROR'),
         orElse: () => lines.isEmpty ? 'core exited' : lines.last);
     return err.replaceFirst(RegExp(r'^.*?(FATAL|ERROR)\]?\s*'), '');
@@ -247,14 +326,13 @@ rm -f "$FLAG"
   Future<void> stop() async {
     _stopping = true;
     await _restoreProxy();
-    if (_macRootMode) {
-      _macRootMode = false;
-      final f = File(_macFlag);
-      if (await f.exists()) await f.delete();
-      // 等待 root 守护脚本结束内核
-      for (var i = 0; i < 30 && await _portBusy(); i++) {
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
+    final svc = _svc;
+    if (svc != null) {
+      _svc = null;
+      _svcPoll?.cancel();
+      try {
+        await svc.stop();
+      } catch (_) {}
     }
     final p = _proc;
     if (p != null) {
@@ -271,15 +349,5 @@ rm -f "$FLAG"
     }
     final pf = File(_pidFile);
     if (await pf.exists()) await pf.delete().catchError((_) => pf);
-  }
-
-  Future<bool> _portBusy() async {
-    try {
-      final s = await Socket.connect('127.0.0.1', _mixedPort, timeout: const Duration(milliseconds: 200));
-      s.destroy();
-      return true;
-    } catch (_) {
-      return false;
-    }
   }
 }

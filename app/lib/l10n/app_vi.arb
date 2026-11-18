@@ -210,5 +210,6 @@
  "bgTitle": "Cho phép Koyun chạy nền",
  "bgBody": "Để tiết kiệm pin, điện thoại có thể đóng Koyun khi chạy nền và làm mất kết nối. Nhấn \"Cho phép\" rồi chọn Cho phép trong hộp thoại hệ thống.",
  "bgBodyRom": "Một số máy (Xiaomi, Huawei, OPPO, vivo...) còn cần: trong cài đặt ứng dụng đặt Tiết kiệm pin thành \"Không hạn chế\" và bật Tự khởi động.",
- "bgAllow": "Cho phép"
+ "bgAllow": "Cho phép",
+ "errMacNotAdmin": "Chế độ TUN cần tài khoản quản trị viên trên máy Mac. Hãy đăng nhập bằng quản trị viên hoặc tạm tắt chế độ TUN."
 }

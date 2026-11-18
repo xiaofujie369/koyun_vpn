@@ -210,5 +210,6 @@
  "bgTitle": "Let Koyun run in the background",
  "bgBody": "To save battery, your phone may close Koyun in the background and drop the connection. Tap \"Allow\" and choose Allow in the system dialog.",
  "bgBodyRom": "Some phones (Xiaomi, Huawei, OPPO, vivo, etc.) also need: in app settings set Battery saver to \"No restrictions\" and turn on Autostart.",
- "bgAllow": "Allow"
+ "bgAllow": "Allow",
+ "errMacNotAdmin": "TUN mode needs an administrator account on this Mac. Sign in as an administrator, or turn off TUN mode for now."
 }

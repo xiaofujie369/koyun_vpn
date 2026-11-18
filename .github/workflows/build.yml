@@ -61,6 +61,15 @@ jobs:
             -ldflags "-X github.com/sagernet/sing-box/constant.Version=$v-koyun -X runtime.godebugDefault=multipathtcp=0,tlssha1=1 -checklinkname=0 -s -w -buildid=" \
             -o "$rel/sing-box.exe" ./cmd/sing-box
           "$rel/sing-box.exe" version
+      # 后台服务：安装时注册，TUN 模式由它以 SYSTEM 启动内核（不再每次弹管理员确认）
+      - name: 编译后台服务
+        shell: bash
+        working-directory: service
+        run: |
+          go vet ./...
+          go test ./...
+          rel="$GITHUB_WORKSPACE/app/build/windows/x64/runner/Release"
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -buildid=" -o "$rel/koyun-service.exe" .
           ls -la "$rel"
       - name: 安装包
         shell: pwsh
@@ -72,6 +81,17 @@ jobs:
           if (!(Test-Path $lang)) { Invoke-WebRequest "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl" -OutFile $lang }
           & $iscc "/DAppVersion=$ver" "/DSrcDir=$PWD\app\build\windows\x64\runner\Release" "/Odist" app\windows\installer.iss
           Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath "dist/Koyun-$ver-windows-x64-portable.zip"
+      # 真实走一遍：装线上 1.1.6（用户目录版）→ 升级到新版 → 服务 / 权限 / TUN / 联网 → 卸载
+      - name: 测试安装、后台服务和 TUN
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force old | Out-Null
+          gh release download v1.1.6-test -R $env:GITHUB_REPOSITORY -p "*windows-x64-setup.exe" -D old
+          $old = (Get-ChildItem old\*-setup.exe | Select-Object -First 1).FullName
+          $new = (Get-ChildItem dist\*-setup.exe | Select-Object -First 1).FullName
+          pwsh tools/ci/win-service-test.ps1 -Setup $new -OldSetup $old
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -152,6 +172,8 @@ jobs:
           osascript -e 'tell application "Koyun" to quit' &
           sleep 15
           if pgrep -x Koyun; then echo "⚠️ 退出后进程还在"; pkill -9 -x Koyun; else echo "退出正常"; fi
+      - name: 测试 TUN 授权一次后免密码
+        run: bash tools/ci/mac-tun-test.sh /Applications/Koyun.app
       - uses: actions/upload-artifact@v4
         with:
           name: macos
