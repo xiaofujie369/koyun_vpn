@@ -7,8 +7,11 @@ import 'mobile_backend.dart';
 enum CoreStatus { stopped, starting, running, stopping }
 
 class CoreStartException implements Exception {
-  CoreStartException(this.message, {this.needAdmin = false, this.needPermission = false});
+  CoreStartException(this.message, {this.needAdmin = false, this.needPermission = false, this.kind});
   final String message;
+
+  /// 失败原因分类（见 CoreService.errorKind）
+  final String? kind;
 
   /// Windows TUN 模式需要管理员权限
   final bool needAdmin;

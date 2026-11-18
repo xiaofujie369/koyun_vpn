@@ -52,6 +52,29 @@ class ClashApi {
 
   Future<void> closeAllConnections() => _send('DELETE', '/connections');
 
+  /// 让 urltest 组立即测一遍并按结果重新选节点；返回 节点 -> 毫秒（不通的节点不在里面）
+  ///
+  /// 内核刚启动时组自己正在测速，这时请求会立即返回空结果（不等它测完）。
+  /// 所以“很快返回空”算忙，等一下再问；测了一阵才返回空才算真的都不通
+  Future<Map<String, int>> groupDelay(String group, String url, {int timeoutMs = 6000}) async {
+    for (var i = 0; i < 20; i++) {
+      final sw = Stopwatch()..start();
+      try {
+        final j = await _send('GET', '/group/${Uri.encodeComponent(group)}/delay',
+            q: {'url': url, 'timeout': '$timeoutMs'},
+            timeout: Duration(milliseconds: timeoutMs + 4000));
+        final ok = j is Map
+            ? {for (final e in j.entries) if (e.value is num && (e.value as num) > 0) '${e.key}': (e.value as num).toInt()}
+            : <String, int>{};
+        if (ok.isNotEmpty || sw.elapsedMilliseconds >= 1000) return ok;
+      } catch (_) {
+        return const {};
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    return const {};
+  }
+
   /// 测单个节点延迟（毫秒），失败返回 -1
   Future<int> delay(String tag, String url, {int timeoutMs = 10000}) async {
     try {

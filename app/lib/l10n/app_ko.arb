@@ -201,5 +201,10 @@
  "resetIn": "{n}일 후 초기화",
  "newVersionTitle": "새 버전 {v}",
  "riskScore": "위험도 {n}",
- "planTraffic": "데이터 {v}"
+ "planTraffic": "데이터 {v}",
+ "errNodeUnreachable": "노드에 연결할 수 없습니다. 차단되었거나 작동하지 않을 수 있습니다. 연결을 끊었으니 다른 노드를 선택하세요.",
+ "warnNodeUnreachable": "현재 노드가 응답하지 않습니다. 차단되었을 수 있으니 다른 노드를 사용해 보세요.",
+ "changeNode": "노드 변경",
+ "errTunAdapter": "TUN 어댑터 생성 실패(이전 비정상 종료로 남은 어댑터가 있습니다). 컴퓨터를 다시 시작하거나 TUN 모드를 끄고 사용하세요.",
+ "errorDetails": "자세히"
 }

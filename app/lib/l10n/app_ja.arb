@@ -201,5 +201,10 @@
  "resetIn": "{n} 日後にリセット",
  "newVersionTitle": "新しいバージョン {v}",
  "riskScore": "リスク {n}",
- "planTraffic": "データ {v}"
+ "planTraffic": "データ {v}",
+ "errNodeUnreachable": "ノードに接続できません。ブロックまたは停止している可能性があります。切断しました。別のノードを選んでください。",
+ "warnNodeUnreachable": "現在のノードが応答しません。ブロックされた可能性があります。別のノードをお試しください。",
+ "changeNode": "ノード変更",
+ "errTunAdapter": "TUN アダプターの作成に失敗しました（前回の異常終了で古いアダプターが残っています）。PC を再起動するか、TUN モードをオフにしてください。",
+ "errorDetails": "詳細"
 }

@@ -75,14 +75,36 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _showError(CoreService core) {
     final t = context.t;
+    final friendly = switch (core.errorKind) {
+      'nodeUnreachable' => t.errNodeUnreachable,
+      'tunAdapter' => t.errTunAdapter,
+      _ => null,
+    };
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
         title: Text(t.connectFailed),
         content: SingleChildScrollView(
-          child: SelectableText(core.lastError ?? '', style: const TextStyle(fontSize: 13)),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (friendly != null) ...[
+              Text(friendly, style: const TextStyle(fontSize: 14, height: 1.5)),
+              const SizedBox(height: 12),
+              Text(t.errorDetails, style: const TextStyle(fontSize: 12, color: KColors.sub)),
+              const SizedBox(height: 4),
+            ],
+            SelectableText(core.lastError ?? '',
+                style: TextStyle(fontSize: friendly != null ? 12 : 13, color: friendly != null ? KColors.sub : null)),
+          ]),
         ),
         actions: [
+          if (core.errorKind == 'nodeUnreachable')
+            TextButton(
+              onPressed: () {
+                Navigator.pop(c);
+                context.findAncestorStateOfType<HomeShellState>()?.goTo('nodes');
+              },
+              child: Text(t.changeNode),
+            ),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
             onPressed: () => Navigator.pop(c),
@@ -103,7 +125,7 @@ class _DashboardPageState extends State<DashboardPage> {
       CoreStatus.running => t.connected,
       CoreStatus.starting => t.connecting,
       CoreStatus.stopping => t.disconnecting,
-      CoreStatus.stopped => t.notConnected,
+      CoreStatus.stopped => core.errorKind == 'nodeUnreachable' ? t.connectFailed : t.notConnected,
     };
     final node = core.currentNode;
     final desktop = !(Platform.isAndroid || Platform.isIOS);
@@ -123,6 +145,14 @@ class _DashboardPageState extends State<DashboardPage> {
                   text: t.subUnavailable,
                   action: Platform.isIOS ? null : t.renewNow,
                   onAction: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('store'),
+                ),
+              ],
+              if (core.running && core.nodeUnreachable) ...[
+                const SizedBox(height: 12),
+                _WarnCard(
+                  text: t.warnNodeUnreachable,
+                  action: t.changeNode,
+                  onAction: () => context.findAncestorStateOfType<HomeShellState>()?.goTo('nodes'),
                 ),
               ],
               SizedBox(height: wide ? 28 : 20),

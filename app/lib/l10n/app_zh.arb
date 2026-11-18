@@ -292,5 +292,10 @@
     "type": "String"
    }
   }
- }
+ },
+ "errNodeUnreachable": "节点连不通，可能已被封锁或失效。已为你断开，请换一个节点再试。",
+ "warnNodeUnreachable": "当前节点连不上了，可能已被封锁，建议换一个节点。",
+ "changeNode": "换节点",
+ "errTunAdapter": "TUN 虚拟网卡创建失败（上次异常退出留下了旧网卡）。请重启电脑后再试，或先关闭 TUN 模式使用。",
+ "errorDetails": "详细信息"
 }

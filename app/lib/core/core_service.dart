@@ -26,7 +26,10 @@ class CoreService extends ChangeNotifier {
   CoreService(this.storage, this.session) : _workDir = storage.dataDir.path {
     backend = CoreBackend.create(_workDir);
     backend.externalStatus.listen((s) {
-      if (s == CoreStatus.stopped && status != CoreStatus.stopped && status != CoreStatus.stopping) {
+      if (s == CoreStatus.stopped && status == CoreStatus.starting) {
+        // 启动过程中内核退出：交给 connect() 报错，这里不能清空 _api，否则 connect() 会空值崩溃
+        _diedWhileStarting = true;
+      } else if (s == CoreStatus.stopped && status != CoreStatus.stopped && status != CoreStatus.stopping) {
         _onStopped();
         lastError ??= 'disconnected';
         notifyListeners();
@@ -46,7 +49,16 @@ class CoreService extends ChangeNotifier {
 
   CoreStatus status = CoreStatus.stopped;
   String? lastError;
+
+  /// 失败原因分类，界面据此显示好懂的提示：nodeUnreachable 节点连不通、tunAdapter TUN 网卡创建失败
+  String? errorKind;
   bool needAdmin = false;
+
+  /// 连接后巡检发现当前节点连不通（可能被封锁），界面提示换节点
+  bool nodeUnreachable = false;
+  int _healthFails = 0;
+  Timer? _healthTimer;
+  bool _diedWhileStarting = false;
 
   String selected = 'auto';
   String? autoNow; // 自动选择当前实际使用的节点
@@ -216,6 +228,7 @@ class CoreService extends ChangeNotifier {
   Future<void> connect() async {
     if (session.nodes.isEmpty) {
       lastError = 'no nodes';
+      errorKind = null;
       notifyListeners();
       return;
     }
@@ -225,65 +238,38 @@ class CoreService extends ChangeNotifier {
     final t0 = DateTime.now();
     status = CoreStatus.starting;
     lastError = null;
+    errorKind = null;
     needAdmin = false;
+    nodeUnreachable = false;
     notifyListeners();
     try {
       // 先停旧内核再选端口，否则旧内核占着端口，每次重连本地代理端口都会变。
       // 手机端不能这样：内核支持直接重载，先停会让服务刚启动就被系统销毁
       if (wasRunning && !isMobile) await backend.stop();
       final tun = isMobile || storage.tunMode;
-      final clashPort = await _freePort(isMobile ? 29090 : 19090);
-      final secret = _randomHex(32);
-      final mixedPort = isMobile ? 0 : await _freePort(AppConfig.defaultMixedPort);
-      final testPort = await _freePort(isMobile ? 29290 : 19290);
-      final testSecret = _randomHex(16);
-      final nodes = [...session.nodes];
-      final cfg = ConfigBuilder.build(CoreOptions(
-        nodes: nodes,
-        selected: selected,
-        ruleSetDir: _ruleDir,
-        workDir: _workDir,
-        clashPort: clashPort,
-        clashSecret: secret,
-        tun: tun,
-        mixedPort: isMobile ? null : mixedPort,
-        routeMode: storage.routeMode,
-        ipv6: storage.ipv6,
-        mobile: isMobile,
-        logLevel: kDebugMode || !isMobile ? 'info' : 'warn',
-        testPort: testPort,
-        testSecret: testSecret,
-      ));
-      await _stopWatchers();
-      NetRoute.proxy = null;
-      await backend.start(jsonEncode(cfg), tun: tun, mixedPort: mixedPort);
-      _api = ClashApi(clashPort, secret);
-      _probe = DelayProbe(
-          port: testPort, password: testSecret, users: ConfigBuilder.testUsers(nodes), log: backend.addLog);
-      _loaded = _snapshot(nodes);
-      _pendingApply = false;
-      await File('$_workDir/api.json')
-          .writeAsString(jsonEncode({'port': clashPort, 'secret': secret, ..._probe!.toJson()}));
-      // 等内核就绪（最多 15 秒）
-      var ok = false;
-      for (var i = 0; i < 60; i++) {
-        if (await _api!.ping()) {
-          ok = true;
+      String? tunName;
+      for (var attempt = 0;; attempt++) {
+        try {
+          await _startCore(tun: tun, tunName: tunName);
           break;
+        } on CoreStartException catch (e) {
+          // Windows：上次异常退出残留了同名 TUN 网卡，换个网卡名重试一次
+          if (attempt == 0 && tun && Platform.isWindows && _isTunAdapterError(e.message)) {
+            backend.addLog('[连接] TUN 网卡创建失败，换网卡名重试：${e.message}');
+            tunName = 'Koyun-${_randomHex(4)}';
+            continue;
+          }
+          rethrow;
         }
-        final b = backend;
-        if (b is MobileBackend && b.lastStatus == 'stopped' && b.lastError != null) {
-          throw CoreStartException(b.lastError!);
-        }
-        await Future.delayed(const Duration(milliseconds: 250));
       }
-      if (!ok) {
-        final logs = backend.recentLogs;
+      final api = _api!;
+      // 内核起来不代表节点能用：被墙的节点也能“启动成功”。先真实访问一次测试地址
+      if (!await _verifyNode(api)) {
         await backend.stop();
-        throw CoreStartException(logs.isEmpty ? 'core not responding' : logs.last);
+        throw CoreStartException('node unreachable', kind: 'nodeUnreachable');
       }
-      this.mixedPort = isMobile ? null : mixedPort;
-      NetRoute.proxy = '${ConfigBuilder.appUser}:$testSecret@127.0.0.1:$testPort';
+      mixedPort = isMobile ? null : _mixedPortPending;
+      NetRoute.proxy = '${ConfigBuilder.appUser}:${_probe!.password}@127.0.0.1:${_probe!.port}';
       // 启动时被屏蔽读不到配置的话，连上后再读一次
       unawaited(Bootstrap.instance.refresh());
       status = CoreStatus.running;
@@ -296,14 +282,118 @@ class CoreService extends ChangeNotifier {
     } on CoreStartException catch (e) {
       needAdmin = e.needAdmin;
       lastError = e.message;
+      errorKind = e.kind ?? (_isTunAdapterError(e.message) ? 'tunAdapter' : null);
       _onStopped();
-      if (!e.needAdmin) Reporter.instance.event('connect_fail', {..._connInfo(), 'error': e.message});
+      if (!e.needAdmin) {
+        Reporter.instance.event('connect_fail', {..._connInfo(), 'error': e.message, if (errorKind != null) 'kind': errorKind});
+      }
     } catch (e) {
       lastError = e.toString();
       _onStopped();
       Reporter.instance.event('connect_fail', {..._connInfo(), 'error': lastError});
     }
     notifyListeners();
+  }
+
+  int _mixedPortPending = 0;
+
+  static bool _isTunAdapterError(String m) =>
+      m.contains('configure tun interface') || m.contains('create adapter') || m.contains('open existing adapter');
+
+  /// 生成配置、启动内核、等 Clash API 就绪（最多 15 秒）
+  Future<void> _startCore({required bool tun, String? tunName}) async {
+    final clashPort = await _freePort(isMobile ? 29090 : 19090);
+    final secret = _randomHex(32);
+    final mixedPort = isMobile ? 0 : await _freePort(AppConfig.defaultMixedPort);
+    final testPort = await _freePort(isMobile ? 29290 : 19290);
+    final testSecret = _randomHex(16);
+    final nodes = [...session.nodes];
+    final cfg = ConfigBuilder.build(CoreOptions(
+      nodes: nodes,
+      selected: selected,
+      ruleSetDir: _ruleDir,
+      workDir: _workDir,
+      clashPort: clashPort,
+      clashSecret: secret,
+      tun: tun,
+      tunName: tunName,
+      mixedPort: isMobile ? null : mixedPort,
+      routeMode: storage.routeMode,
+      ipv6: storage.ipv6,
+      mobile: isMobile,
+      logLevel: kDebugMode || !isMobile ? 'info' : 'warn',
+      testPort: testPort,
+      testSecret: testSecret,
+    ));
+    await _stopWatchers();
+    NetRoute.proxy = null;
+    _diedWhileStarting = false;
+    await backend.start(jsonEncode(cfg), tun: tun, mixedPort: mixedPort);
+    final api = _api = ClashApi(clashPort, secret);
+    _probe = DelayProbe(
+        port: testPort, password: testSecret, users: ConfigBuilder.testUsers(nodes), log: backend.addLog);
+    _loaded = _snapshot(nodes);
+    _pendingApply = false;
+    _mixedPortPending = mixedPort;
+    await File('$_workDir/api.json')
+        .writeAsString(jsonEncode({'port': clashPort, 'secret': secret, ..._probe!.toJson()}));
+    for (var i = 0; i < 60; i++) {
+      if (_diedWhileStarting) throw CoreStartException(_lastCoreError());
+      if (await api.ping()) return;
+      final b = backend;
+      if (b is MobileBackend && b.lastStatus == 'stopped' && b.lastError != null) {
+        throw CoreStartException(b.lastError!);
+      }
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+    final err = _lastCoreError();
+    await backend.stop();
+    throw CoreStartException(err);
+  }
+
+  String _lastCoreError() {
+    final logs = backend.recentLogs;
+    final err = logs.lastWhere((l) => l.contains('FATAL') || l.contains('ERROR'),
+        orElse: () => logs.isEmpty ? 'core not responding' : logs.last);
+    return err.replaceFirst(RegExp(r'^.*?(FATAL|ERROR)\]?\s*'), '');
+  }
+
+  /// 通过当前选择（单个节点或自动选择）真实访问测试地址；两个地址都不通才算失败
+  Future<bool> _verifyNode(ClashApi api, {bool initial = true}) async {
+    for (final host in const [AppConfig.delayProbeHost, AppConfig.delayProbeFallbackHost]) {
+      final url = 'http://$host/generate_204';
+      if (selected == 'auto' && initial) {
+        // 自动选择：先让它把所有节点测一遍，避开被墙的节点
+        final ok = await api.groupDelay('auto', url);
+        if (ok.isEmpty) {
+          backend.addLog('[连接检测] 自动选择：$host 所有节点都不通');
+          continue;
+        }
+      }
+      final ms = await api.delay('proxy', url, timeoutMs: 6000);
+      if (ms > 0) return true;
+      backend.addLog('[连接检测] ${currentNode?.tag ?? selected}：$host 不通');
+    }
+    return false;
+  }
+
+  /// 连接期间每分钟检查一次；连续 2 次不通就提示“节点连不上了”。
+  /// 自动选择模式下顺便让它重新选节点
+  void _startHealthCheck(ClashApi api) {
+    _healthTimer?.cancel();
+    _healthFails = 0;
+    _healthTimer = Timer.periodic(const Duration(seconds: 60), (_) async {
+      if (status != CoreStatus.running || _api != api) return;
+      final ok = await _verifyNode(api, initial: selected == 'auto');
+      if (status != CoreStatus.running || _api != api) return;
+      _healthFails = ok ? 0 : _healthFails + 1;
+      final bad = _healthFails >= 2;
+      if (bad != nodeUnreachable) {
+        nodeUnreachable = bad;
+        if (bad) Reporter.instance.event('node_unreachable', _connInfo());
+        notifyListeners();
+      }
+    });
   }
 
   void _afterStart() {
@@ -313,6 +403,7 @@ class CoreService extends ChangeNotifier {
     unawaited(api.select('proxy', selected).catchError((_) {}));
     unawaited(api.setMode(ConfigBuilder.clashMode(storage.routeMode)).catchError((_) {}));
     _watchTraffic(api);
+    _startHealthCheck(api);
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       try {
@@ -360,6 +451,8 @@ class CoreService extends ChangeNotifier {
     upSpeed = downSpeed = 0;
     connectedAt = null;
     _stopWatchers();
+    _healthTimer?.cancel();
+    nodeUnreachable = false;
     _api?.close();
     _api = null;
     _probe = null;

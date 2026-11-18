@@ -201,5 +201,10 @@
  "resetIn": "Data resets in {n} days",
  "newVersionTitle": "Version {v} is available",
  "riskScore": "Risk {n}",
- "planTraffic": "{v} data"
+ "planTraffic": "{v} data",
+ "errNodeUnreachable": "This node can't be reached — it may be blocked or offline. Disconnected; please pick another node.",
+ "warnNodeUnreachable": "The current node stopped responding and may be blocked. Try another node.",
+ "changeNode": "Change node",
+ "errTunAdapter": "Failed to create the TUN adapter (a stale adapter was left by an earlier crash). Restart your computer, or turn off TUN mode for now.",
+ "errorDetails": "Details"
 }

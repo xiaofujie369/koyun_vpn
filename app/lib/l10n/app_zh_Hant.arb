@@ -201,5 +201,10 @@
  "resetIn": "已用流量將在 {n} 日後重設",
  "newVersionTitle": "發現新版本 {v}",
  "riskScore": "風險值 {n}",
- "planTraffic": "{v} 流量"
+ "planTraffic": "{v} 流量",
+ "errNodeUnreachable": "節點連不通，可能已被封鎖或失效。已為你斷開，請換一個節點再試。",
+ "warnNodeUnreachable": "目前節點連不上了，可能已被封鎖，建議換一個節點。",
+ "changeNode": "換節點",
+ "errTunAdapter": "TUN 虛擬網卡建立失敗（上次異常退出留下了舊網卡）。請重新開機後再試，或先關閉 TUN 模式使用。",
+ "errorDetails": "詳細資訊"
 }

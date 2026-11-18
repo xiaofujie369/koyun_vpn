@@ -20,6 +20,7 @@ class CoreOptions {
     this.testPort,
     this.testSecret = '',
     this.testerOnly = false,
+    this.tunName,
   });
 
   final List<ProxyNode> nodes;
@@ -43,6 +44,9 @@ class CoreOptions {
 
   /// 未连接时临时启动的测速内核：不要"自动选择"（否则一启动就把所有节点测一遍，干扰测速）、不用缓存文件
   final bool testerOnly;
+
+  /// TUN 网卡名。Windows 上次异常退出残留同名网卡时，换个名字重试
+  final String? tunName;
 }
 
 /// 生成 sing-box 1.14 配置。
@@ -112,6 +116,7 @@ class ConfigBuilder {
       inbounds.add({
         'type': 'tun',
         'tag': 'tun-in',
+        if (o.tunName != null) 'interface_name': o.tunName,
         'address': [
           '172.19.0.1/30',
           if (o.ipv6) 'fdfe:dcba:9876::1/126',

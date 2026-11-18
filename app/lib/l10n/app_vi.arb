@@ -201,5 +201,10 @@
  "resetIn": "Đặt lại sau {n} ngày",
  "newVersionTitle": "Đã có phiên bản {v}",
  "riskScore": "Rủi ro {n}",
- "planTraffic": "{v} dung lượng"
+ "planTraffic": "{v} dung lượng",
+ "errNodeUnreachable": "Không kết nối được nút này — có thể đã bị chặn hoặc ngừng hoạt động. Đã ngắt kết nối, vui lòng chọn nút khác.",
+ "warnNodeUnreachable": "Nút hiện tại không phản hồi, có thể đã bị chặn. Hãy thử nút khác.",
+ "changeNode": "Đổi nút",
+ "errTunAdapter": "Không tạo được bộ điều hợp TUN (còn sót bộ điều hợp cũ sau lần thoát bất thường). Hãy khởi động lại máy hoặc tạm tắt chế độ TUN.",
+ "errorDetails": "Chi tiết"
 }
