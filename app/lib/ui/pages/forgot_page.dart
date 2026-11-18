@@ -91,7 +91,7 @@ class _ForgotPageState extends State<ForgotPage> {
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(hintText: t.emailHint, prefixIcon: pre(Icons.mail_outline_rounded)),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             TextField(
               controller: _code,
               keyboardType: TextInputType.number,
@@ -103,7 +103,7 @@ class _ForgotPageState extends State<ForgotPage> {
                   child: TextButton(
                     onPressed: _countdown > 0 ? null : _sendCode,
                     child: Text(_countdown > 0 ? '${_countdown}s' : t.sendCode,
-                        style: const TextStyle(color: KColors.lavender, fontWeight: FontWeight.w700)),
+                        style: TextStyle(color: KColors.lavender, fontWeight: FontWeight.w700)),
                   ),
                 ),
               ),
@@ -118,9 +118,9 @@ class _ForgotPageState extends State<ForgotPage> {
             FilledButton(
               onPressed: _loading ? null : _submit,
               child: _loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 22, height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                      child: CircularProgressIndicator(strokeWidth: 2.4, color: KColors.onInk))
                   : Text(t.resetPassword),
             ),
           ]),

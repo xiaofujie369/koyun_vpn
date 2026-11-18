@@ -77,7 +77,7 @@ class _StorePageState extends State<StorePage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(t.navStore, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
-            Text(t.storeSubtitle, style: const TextStyle(color: KColors.sub)),
+            Text(t.storeSubtitle, style: TextStyle(color: KColors.sub)),
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.all(4),
@@ -96,7 +96,7 @@ class _StorePageState extends State<StorePage> {
                         ),
                         child: Text(l,
                             style: TextStyle(
-                                color: _filter == i ? Colors.white : KColors.sub,
+                                color: _filter == i ? KColors.onInk : KColors.sub,
                                 fontWeight: FontWeight.w700)),
                       ),
                     ),
@@ -106,13 +106,13 @@ class _StorePageState extends State<StorePage> {
             const SizedBox(height: 20),
             if (_error != null)
               Center(child: Column(children: [
-                Text(_error!, style: const TextStyle(color: KColors.danger)),
+                Text(_error!, style: TextStyle(color: KColors.danger)),
                 TextButton(onPressed: _load, child: Text(t.retry)),
               ]))
             else if (_plans == null)
               const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
             else if (plans.isEmpty)
-              Center(child: Text(t.noPlans, style: const TextStyle(color: KColors.sub)))
+              Center(child: Text(t.noPlans, style: TextStyle(color: KColors.sub)))
             else
               Wrap(
                 spacing: 16,
@@ -166,7 +166,7 @@ class _PlanCard extends StatelessWidget {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
         if (gb != null) ...[
           const SizedBox(height: 6),
-          Text(t.planTraffic('$gb GB'), style: const TextStyle(color: KColors.sub)),
+          Text(t.planTraffic('$gb GB'), style: TextStyle(color: KColors.sub)),
         ],
         const SizedBox(height: 14),
         if (first != null)
@@ -176,7 +176,7 @@ class _PlanCard extends StatelessWidget {
             const SizedBox(width: 6),
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text('/ ${periodLabel(context, first)}', style: const TextStyle(color: KColors.sub)),
+              child: Text('/ ${periodLabel(context, first)}', style: TextStyle(color: KColors.sub)),
             ),
           ]),
         const SizedBox(height: 12),
@@ -184,7 +184,7 @@ class _PlanCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.check_circle_rounded, size: 18, color: KColors.ok),
+              Icon(Icons.check_circle_rounded, size: 18, color: KColors.ok),
               const SizedBox(width: 8),
               Expanded(child: Text(f, style: const TextStyle(fontSize: 13, height: 1.4))),
             ]),
@@ -331,7 +331,7 @@ class _BuySheetState extends State<_BuySheet> {
           Text((widget.plan['name'] ?? '').toString(),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
-          Text(t.choosePeriod, style: const TextStyle(color: KColors.sub)),
+          Text(t.choosePeriod, style: TextStyle(color: KColors.sub)),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final p in _avail)
@@ -344,8 +344,8 @@ class _BuySheetState extends State<_BuySheet> {
                 }),
               ),
           ]),
-          const SizedBox(height: 16),
-          Text(t.paymentMethod, style: const TextStyle(color: KColors.sub)),
+          SizedBox(height: 16),
+          Text(t.paymentMethod, style: TextStyle(color: KColors.sub)),
           const SizedBox(height: 8),
           if (_methods.isEmpty) const LinearProgressIndicator(minHeight: 2),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -369,14 +369,14 @@ class _BuySheetState extends State<_BuySheet> {
               child: Row(children: [
                 const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                 const SizedBox(width: 10),
-                Expanded(child: Text(t.waitingPayment, style: const TextStyle(color: KColors.sub))),
+                Expanded(child: Text(t.waitingPayment, style: TextStyle(color: KColors.sub))),
               ]),
             ),
           FilledButton(
             onPressed: _busy ? null : _pay,
             child: _busy
-                ? const SizedBox(width: 22, height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                ? SizedBox(width: 22, height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.4, color: KColors.onInk))
                 : Text('${t.payNow}  ¥${_money(price)}'),
           ),
         ]),

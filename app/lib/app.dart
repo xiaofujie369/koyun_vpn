@@ -52,8 +52,43 @@ String apiLanguageTag(Locale l) {
   };
 }
 
-class KoyunApp extends StatelessWidget {
+class KoyunApp extends StatefulWidget {
   const KoyunApp({super.key});
+  @override
+  State<KoyunApp> createState() => _KoyunAppState();
+}
+
+class _KoyunAppState extends State<KoyunApp> with WidgetsBindingObserver {
+  late final ThemeController _theme = context.read<ThemeController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _theme.addListener(_onTheme);
+  }
+
+  @override
+  void dispose() {
+    _theme.removeListener(_onTheme);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// 系统切换深色 / 浅色（“跟随系统”时生效）
+  @override
+  void didChangePlatformBrightness() =>
+      _theme.setPlatform(WidgetsBinding.instance.platformDispatcher.platformBrightness);
+
+  /// 颜色是全局取值，不会触发依赖它的组件重建：换主题后把整棵树标记为需要重建（页面状态保留）
+  void _onTheme() {
+    setState(() {});
+    void mark(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(mark);
+    }
+    (context as Element).visitChildren(mark);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +98,7 @@ class KoyunApp extends StatelessWidget {
         title: AppConfig.appName,
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
+        themeAnimationDuration: Duration.zero,
         locale: forced,
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const [

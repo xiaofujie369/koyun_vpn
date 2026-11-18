@@ -76,7 +76,7 @@ class _NodesPageState extends State<NodesPage> {
                   s.lastRefreshAt == null
                       ? t.nodesCount(s.nodes.length)
                       : '${t.nodesCount(s.nodes.length)} · ${t.updatedAt(_ago(context, s.lastRefreshAt!))}',
-                  style: const TextStyle(color: KColors.sub, fontSize: 13),
+                  style: TextStyle(color: KColors.sub, fontSize: 13),
                 ),
               ]),
             ),
@@ -135,7 +135,7 @@ class _NodesPageState extends State<NodesPage> {
               ? ListView(children: [
                   const SizedBox(height: 80),
                   Center(child: Text(s.subscriptionUnavailable ? t.subUnavailable : t.noNodes,
-                      style: const TextStyle(color: KColors.sub))),
+                      style: TextStyle(color: KColors.sub))),
                   const SizedBox(height: 16),
                   Center(
                     child: OutlinedButton.icon(
@@ -277,7 +277,7 @@ class _NodeTile extends StatelessWidget {
                       child: Text(sub,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: KColors.faint, fontSize: 11)),
+                          style: TextStyle(color: KColors.faint, fontSize: 11)),
                     ),
                     if (multiplier != null) ...[const SizedBox(width: 5), KTag(multiplier!)],
                   ]),
@@ -293,7 +293,7 @@ class _NodeTile extends StatelessWidget {
                 _DelayLabel(delay: delay, onTap: onRetest),
               if (selected) ...[
                 const SizedBox(width: 6),
-                const Icon(Icons.check_circle_rounded, size: 16, color: KColors.lavender),
+                Icon(Icons.check_circle_rounded, size: 16, color: KColors.lavender),
               ],
             ]),
           ),
@@ -330,7 +330,7 @@ class _RegionChip extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                        color: selected ? Colors.white : KColors.ink)),
+                        color: selected ? KColors.onInk : KColors.ink)),
               ]),
             ),
           ),

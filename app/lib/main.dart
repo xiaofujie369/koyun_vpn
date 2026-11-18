@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -20,6 +21,7 @@ import 'services/bootstrap.dart';
 import 'services/ip_info.dart';
 import 'services/reporter.dart';
 import 'services/updater.dart';
+import 'ui/theme.dart';
 
 bool get isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
@@ -60,17 +62,24 @@ Future<void> main(List<String> args) async {
   final session = Session(storage, api);
   final core = CoreService(storage, session);
   final ip = IpService(core);
+  final theme = ThemeController(
+    switch (storage.themeMode) { 'light' => ThemeMode.light, 'dark' => ThemeMode.dark, _ => ThemeMode.system },
+    onSave: (m) => storage.setThemeMode(m.name),
+  )..init(WidgetsBinding.instance.platformDispatcher.platformBrightness);
 
   if (isDesktop) {
     await windowManager.ensureInitialized();
+    final (size, minSize) = await _windowSize();
     await windowManager.waitUntilReadyToShow(
       WindowOptions(
-        // 默认窗口大小和 Codex 桌面端一样，适中不占满屏幕
-        size: const Size(900, 600),
-        minimumSize: const Size(760, 500),
+        size: size,
+        minimumSize: minSize,
         center: true,
         title: AppConfig.appName,
-        backgroundColor: const Color(0xFFFAF8F4),
+        backgroundColor: KColors.bg,
+        // 自己画标题栏（Windows 右上角放最小化 / 关闭；macOS 保留红绿灯）
+        titleBarStyle: TitleBarStyle.hidden,
+        windowButtonVisibility: Platform.isMacOS,
       ),
       () async {
         await windowManager.show();
@@ -85,6 +94,7 @@ Future<void> main(List<String> args) async {
       ChangeNotifierProvider.value(value: session),
       ChangeNotifierProvider.value(value: core),
       ChangeNotifierProvider.value(value: ip),
+      ChangeNotifierProvider.value(value: theme),
     ],
     child: const KoyunApp(),
   ));
@@ -216,5 +226,21 @@ class DesktopShell with TrayListener, WindowListener {
     await windowManager.setPreventClose(false);
     await windowManager.destroy();
     exit(0);
+  }
+}
+
+/// 默认窗口 915×570（一屏放下首页）。屏幕可用区域放不下时按比例缩小，
+/// 保证在 1366×768 + 125% 缩放这类小屏幕上也能完整显示
+Future<(Size, Size)> _windowSize() async {
+  const want = Size(915, 570);
+  const minWant = Size(720, 480);
+  try {
+    final d = await screenRetriever.getPrimaryDisplay();
+    final avail = d.visibleSize ?? d.size; // 逻辑像素，已去掉任务栏
+    final w = (avail.width * 0.94).clamp(560.0, want.width);
+    final h = (avail.height * 0.92).clamp(420.0, want.height);
+    return (Size(w, h), Size(w < minWant.width ? w : minWant.width, h < minWant.height ? h : minWant.height));
+  } catch (_) {
+    return (want, minWant);
   }
 }

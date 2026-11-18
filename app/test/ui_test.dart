@@ -75,6 +75,7 @@ Widget _app(Session s, CoreService c) => MultiProvider(
         ChangeNotifierProvider.value(value: s),
         ChangeNotifierProvider.value(value: c),
         ChangeNotifierProvider.value(value: _ip(c)),
+        ChangeNotifierProvider(create: (_) => ThemeController(ThemeMode.system)),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -224,8 +225,12 @@ void main() {
     expect(Updater.isNewer('1.0.0', '1.0.1'), isFalse);
   });
 
-  for (final size in const [Size(960, 640), Size(760, 520), Size(1400, 900), Size(390, 800)]) {
-    testWidgets('所有页面无布局错误 ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
+  // 915x570 默认窗口；720x480 最小窗口；600x440 小屏幕缩小后的窗口；两套主题都要过
+  for (final dark in [false, true])
+  for (final size in const [Size(915, 570), Size(720, 480), Size(600, 440), Size(960, 640), Size(1400, 900), Size(390, 800)]) {
+    testWidgets('所有页面无布局错误 ${size.width.toInt()}x${size.height.toInt()}${dark ? ' 黑色主题' : ''}', (tester) async {
+      KColors.p = dark ? KPalette.darkTheme : KPalette.light;
+      addTearDown(() => KColors.p = KPalette.light);
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);

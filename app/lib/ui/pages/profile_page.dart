@@ -46,7 +46,7 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(t.navProfile, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
           const SizedBox(height: 2),
-          Text(t.profileSubtitle, style: const TextStyle(color: KColors.sub)),
+          Text(t.profileSubtitle, style: TextStyle(color: KColors.sub)),
           const SizedBox(height: 18),
           _AccountCard(session: s),
           const SizedBox(height: 14),
@@ -82,7 +82,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _Section(title: t.settings, icon: Icons.tune_rounded, children: [
             _Item(Icons.translate_rounded, t.language,
                 trailing: Text(_langName(context, s.storage.localeOverride),
-                    style: const TextStyle(color: KColors.sub)),
+                    style: TextStyle(color: KColors.sub)),
                 onTap: () => _pickLanguage(context, s.storage)),
             _SwitchItem(Icons.flash_on_rounded, t.autoConnect, t.autoConnectDesc,
                 value: s.storage.autoConnect, onChanged: (v) async {
@@ -104,7 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Icons.system_update_alt_rounded,
                   t.checkUpdate,
                   trailing: u.checking
-                      ? const BtnSpinner(color: KColors.sub)
+                      ? BtnSpinner(color: KColors.sub)
                       : Text(
                           u.available != null
                               ? '${t.newVersionBadge} v${u.available!.version}'
@@ -233,7 +233,7 @@ class _AccountCard extends StatelessWidget {
           width: 58,
           height: 58,
           decoration: BoxDecoration(color: KColors.ink, borderRadius: BorderRadius.circular(18)),
-          child: const Icon(Icons.person_rounded, color: Colors.white, size: 30),
+          child: Icon(Icons.person_rounded, color: KColors.onInk, size: 30),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -259,26 +259,26 @@ class _AccountCard extends StatelessWidget {
             ]),
             const SizedBox(height: 4),
             Row(children: [
-              const Icon(Icons.verified_rounded, size: 16, color: KColors.ok),
+              Icon(Icons.verified_rounded, size: 16, color: KColors.ok),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(local ? t.localModeDesc : (session.planName ?? t.noPlan),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: KColors.ok, fontWeight: FontWeight.w500)),
+                    style: TextStyle(color: KColors.ok, fontWeight: FontWeight.w500)),
               ),
             ]),
           ]),
         ),
         if (!local || exp > 0)
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(t.expireDate, style: const TextStyle(color: KColors.sub, fontSize: 12)),
+            Text(t.expireDate, style: TextStyle(color: KColors.sub, fontSize: 12)),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(color: KColors.ink, borderRadius: BorderRadius.circular(10)),
               child: Text(exp == 0 ? t.longTerm : fmtDate(exp),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  style: TextStyle(color: KColors.onInk, fontWeight: FontWeight.w700)),
             ),
           ]),
       ]),
@@ -320,9 +320,9 @@ class _TrafficCard extends StatelessWidget {
         if (reset != null) ...[
           const SizedBox(height: 10),
           Row(children: [
-            const Icon(Icons.schedule_rounded, size: 14, color: KColors.sub),
+            Icon(Icons.schedule_rounded, size: 14, color: KColors.sub),
             const SizedBox(width: 4),
-            Text(t.resetIn(reset), style: const TextStyle(color: KColors.sub, fontSize: 12)),
+            Text(t.resetIn(reset), style: TextStyle(color: KColors.sub, fontSize: 12)),
           ]),
         ],
         if (session.mode == AccountMode.xboard) ...[
@@ -379,7 +379,7 @@ class _Item extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         leading: Icon(icon, color: KColors.sub),
         title: Text(label, style: const TextStyle(fontSize: 15)),
-        trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: KColors.faint),
+        trailing: trailing ?? Icon(Icons.chevron_right_rounded, color: KColors.faint),
         onTap: onTap,
       );
 }
@@ -394,7 +394,7 @@ class _SwitchItem extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
         leading: Icon(icon, color: KColors.sub),
         title: Text(label, style: const TextStyle(fontSize: 15)),
-        subtitle: Text(desc, style: const TextStyle(fontSize: 12, color: KColors.faint)),
+        subtitle: Text(desc, style: TextStyle(fontSize: 12, color: KColors.faint)),
         trailing: Switch(value: value, onChanged: onChanged),
         onTap: () => onChanged(!value),
       );

@@ -160,8 +160,8 @@
  "close": "Đóng",
  "statusIdleHint": "Chọn máy chủ rồi nhấn nút để kết nối",
  "networkInfo": "Mạng",
- "localNetwork": "Mạng của bạn",
- "proxyExit": "Lối ra proxy",
+ "localNetwork": "IP của bạn (trực tiếp)",
+ "proxyExit": "IP đầu ra của nút",
  "showAfterConnect": "Hiển thị sau khi kết nối",
  "ipFetchFailed": "Lỗi — nhấn để thử lại",
  "residentialIp": "Dân cư",
@@ -211,5 +211,12 @@
  "bgBody": "Để tiết kiệm pin, điện thoại có thể đóng Koyun khi chạy nền và làm mất kết nối. Nhấn \"Cho phép\" rồi chọn Cho phép trong hộp thoại hệ thống.",
  "bgBodyRom": "Một số máy (Xiaomi, Huawei, OPPO, vivo...) còn cần: trong cài đặt ứng dụng đặt Tiết kiệm pin thành \"Không hạn chế\" và bật Tự khởi động.",
  "bgAllow": "Cho phép",
- "errMacNotAdmin": "Chế độ TUN cần tài khoản quản trị viên trên máy Mac. Hãy đăng nhập bằng quản trị viên hoặc tạm tắt chế độ TUN."
+ "errMacNotAdmin": "Chế độ TUN cần tài khoản quản trị viên trên máy Mac. Hãy đăng nhập bằng quản trị viên hoặc tạm tắt chế độ TUN.",
+ "themeLight": "Giao diện sáng",
+ "themeDark": "Giao diện tối",
+ "winMinimize": "Thu nhỏ",
+ "winClose": "Đóng",
+ "dataLeft": "Dữ liệu còn lại",
+ "expireOn": "Hết hạn {d}",
+ "noticeTitle": "Thông báo"
 }

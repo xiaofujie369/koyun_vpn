@@ -160,8 +160,8 @@
  "close": "关闭",
  "statusIdleHint": "选择节点后点击右下角按钮连接",
  "networkInfo": "网络信息",
- "localNetwork": "本机网络",
- "proxyExit": "代理出口",
+ "localNetwork": "你的网络 IP（直连）",
+ "proxyExit": "节点出口 IP",
  "showAfterConnect": "连接后显示",
  "ipFetchFailed": "获取失败，点击重试",
  "residentialIp": "住宅",
@@ -302,5 +302,13 @@
  "bgBody": "手机系统为了省电，会在后台关掉 Koyun，导致断线。点击「去允许」，在弹出的窗口里选择「允许」。",
  "bgBodyRom": "部分手机（小米、华为、OPPO、vivo 等）还需要：在应用设置里把「省电策略」设为「无限制」，并打开「自启动」。",
  "bgAllow": "去允许",
- "errMacNotAdmin": "TUN 模式需要电脑的管理员账号。请换用管理员账号登录 Mac，或先关闭 TUN 模式使用。"
+ "errMacNotAdmin": "TUN 模式需要电脑的管理员账号。请换用管理员账号登录 Mac，或先关闭 TUN 模式使用。",
+ "themeLight": "白色主题",
+ "themeDark": "黑色主题",
+ "winMinimize": "最小化",
+ "winClose": "关闭",
+ "dataLeft": "剩余流量",
+ "expireOn": "到期 {d}",
+ "noticeTitle": "公告",
+ "@expireOn": {"placeholders": {"d": {"type": "String"}}}
 }

@@ -33,7 +33,7 @@ after=$(ifconfig -l)
 newif=$(comm -13 <(tr ' ' '\n' <<<"$before" | sort) <(tr ' ' '\n' <<<"$after" | sort) | grep utun || true)
 check '[ -n "$newif" ]' "创建了 TUN 网卡 $newif"
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -x http://127.0.0.1:17998 http://www.gstatic.com/generate_204)
-check '[ "$code" = 204 ]' "内核联网（HTTP $code）"
+check '[ "$code" = 204 ]' "内核联网（HTTP ${code}）"
 check '[ "$(stat -f %Su "$W/cache.db")" = "$(id -un)" ]' "缓存文件仍归普通用户（之后切回系统代理模式还能用）"
 kill $pid; sleep 2
 check '! kill -0 $pid 2>/dev/null' "普通用户能结束 root 内核（App 断开连接的方式）"

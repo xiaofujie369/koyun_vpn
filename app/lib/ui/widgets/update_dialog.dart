@@ -62,20 +62,20 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             width: 420,
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text('v${AppConfig.appVersion}  →  v${info.version}',
-                  style: const TextStyle(fontSize: KSize.small, color: KColors.faint)),
+                  style: TextStyle(fontSize: KSize.small, color: KColors.faint)),
               if (info.notes.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 220),
                   child: SingleChildScrollView(
-                    child: Text(stripHtml(info.notes), style: const TextStyle(fontSize: KSize.body, color: KColors.sub)),
+                    child: Text(stripHtml(info.notes), style: TextStyle(fontSize: KSize.body, color: KColors.sub)),
                   ),
                 ),
               ],
               if (p != null) ...[
                 const SizedBox(height: 16),
                 Text(p >= 1 ? t.installingUpdate : t.downloadingUpdate,
-                    style: const TextStyle(fontSize: KSize.small, color: KColors.sub)),
+                    style: TextStyle(fontSize: KSize.small, color: KColors.sub)),
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
@@ -83,7 +83,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                     value: p,
                     minHeight: 6,
                     backgroundColor: KColors.field,
-                    valueColor: const AlwaysStoppedAnimation(KColors.accent),
+                    valueColor: AlwaysStoppedAnimation(KColors.accent),
                   ),
                 ),
               ],

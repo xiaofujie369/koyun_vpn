@@ -120,7 +120,7 @@ class PageHeader extends StatelessWidget {
               Text(title, style: const TextStyle(fontSize: KSize.title, fontWeight: FontWeight.w600, letterSpacing: -0.2)),
               if (subtitle != null) ...[
                 const SizedBox(height: 3),
-                Text(subtitle!, style: const TextStyle(color: KColors.sub, fontSize: KSize.small + 0.5)),
+                Text(subtitle!, style: TextStyle(color: KColors.sub, fontSize: KSize.small + 0.5)),
               ],
             ]),
           ),
@@ -140,7 +140,7 @@ class KCard extends StatelessWidget {
         color: color ?? KColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(KSize.radiusLg),
-          side: const BorderSide(color: KColors.border),
+          side: BorderSide(color: KColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -152,10 +152,12 @@ class KCard extends StatelessWidget {
 }
 
 class IconBox extends StatelessWidget {
-  const IconBox(this.icon, {super.key, this.color = KColors.sub, this.size = 30, this.bg = KColors.field});
+  const IconBox(this.icon, {super.key, Color? color, this.size = 30, Color? bg}) : _color = color, _bg = bg;
   final IconData icon;
-  final Color color;
-  final Color bg;
+  final Color? _color;
+  final Color? _bg;
+  Color get color => _color ?? KColors.sub;
+  Color get bg => _bg ?? KColors.field;
   final double size;
   @override
   Widget build(BuildContext context) => Container(
@@ -168,9 +170,11 @@ class IconBox extends StatelessWidget {
 
 /// 小标签
 class KTag extends StatelessWidget {
-  const KTag(this.text, {super.key, this.color = KColors.sub, this.bg = KColors.field});
+  const KTag(this.text, {super.key, Color? color, Color? bg}) : _color = color, _bg = bg;
   final String text;
-  final Color color, bg;
+  final Color? _color, _bg;
+  Color get color => _color ?? KColors.sub;
+  Color get bg => _bg ?? KColors.field;
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
@@ -248,12 +252,12 @@ class KRow extends StatelessWidget {
                 if (subtitle != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 1),
-                    child: Text(subtitle!, style: const TextStyle(fontSize: KSize.small, color: KColors.faint)),
+                    child: Text(subtitle!, style: TextStyle(fontSize: KSize.small, color: KColors.faint)),
                   ),
               ]),
             ),
             if (trailing != null) trailing! else if (onTap != null)
-              const Icon(Icons.chevron_right_rounded, size: 18, color: KColors.faint),
+              Icon(Icons.chevron_right_rounded, size: 18, color: KColors.faint),
           ]),
         ),
       );
@@ -269,7 +273,7 @@ class KGroup extends StatelessWidget {
         if (title != null)
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(title!, style: const TextStyle(fontSize: KSize.small, color: KColors.sub, fontWeight: FontWeight.w500)),
+            child: Text(title!, style: TextStyle(fontSize: KSize.small, color: KColors.sub, fontWeight: FontWeight.w500)),
           ),
         KCard(
           padding: EdgeInsets.zero,
@@ -296,22 +300,23 @@ class StatTile extends StatelessWidget {
           Row(children: [
             if (icon != null) ...[Icon(icon, size: 14, color: KColors.faint), const SizedBox(width: 5)],
             Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: KSize.small, color: KColors.sub))),
+                style: TextStyle(fontSize: KSize.small, color: KColors.sub))),
           ]),
           const SizedBox(height: 6),
           Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, fontFeatures: [FontFeature.tabularFigures()])),
           if (sub != null)
             Text(sub!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: KColors.faint)),
+                style: TextStyle(fontSize: 11, color: KColors.faint)),
         ]),
       );
 }
 
 /// 按钮里的加载圈
 class BtnSpinner extends StatelessWidget {
-  const BtnSpinner({super.key, this.color = Colors.white});
-  final Color color;
+  const BtnSpinner({super.key, Color? color}) : _color = color;
+  final Color? _color;
+  Color get color => _color ?? KColors.onInk;
   @override
   Widget build(BuildContext context) =>
       SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: color));
@@ -345,4 +350,18 @@ class CountryFlag extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 公告详情弹窗（顶部标题栏和手机首页共用）
+void showNotice(BuildContext context, Map<String, dynamic> notice) {
+  final title = (notice['title'] ?? '').toString();
+  final content = stripHtml((notice['content'] ?? '').toString());
+  showDialog(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text(title),
+      content: SingleChildScrollView(child: SelectableText(content)),
+      actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(context.t.ok))],
+    ),
+  );
 }

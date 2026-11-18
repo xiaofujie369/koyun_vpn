@@ -71,6 +71,7 @@ Widget _app(Session s, CoreService c) => MultiProvider(
         ChangeNotifierProvider.value(value: s),
         ChangeNotifierProvider.value(value: c),
         ChangeNotifierProvider.value(value: _ip(c)),
+        ChangeNotifierProvider(create: (_) => ThemeController(KColors.isDark ? ThemeMode.dark : ThemeMode.light)),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -106,7 +107,7 @@ Future<void> _loadFonts() async {
 void main() {
   setUpAll(_loadFonts);
   testWidgets('截图 导入本地文件', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
-    tester.view.physicalSize = const Size(900, 600);
+    tester.view.physicalSize = const Size(915, 570);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     AppConfig.bootConvert = 'https://convert.example.com';
@@ -126,9 +127,12 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   });
+  for (final dark in [false, true])
   for (final page in ['home', 'nodes', 'profile']) {
-    testWidgets('截图 $page', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
-      tester.view.physicalSize = const Size(900, 600);
+    testWidgets('截图 $page${dark ? '-dark' : ''}', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
+      KColors.p = dark ? KPalette.darkTheme : KPalette.light;
+      addTearDown(() => KColors.p = KPalette.light);
+      tester.view.physicalSize = const Size(915, 570);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final (s, c) = await _services();
@@ -141,7 +145,7 @@ void main() {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
         await tester.pump(const Duration(milliseconds: 100));
       }
-      await expectLater(find.byType(RepaintBoundary).first, matchesGoldenFile('shots/$page.png'));
+      await expectLater(find.byType(RepaintBoundary).first, matchesGoldenFile('shots/$page${dark ? '-dark' : ''}.png'));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 2));
     });

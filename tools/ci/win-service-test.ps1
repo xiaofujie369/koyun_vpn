@@ -75,7 +75,7 @@ Start-Sleep 3
 $ad = Get-NetAdapter -Name 'Koyun-CI' -ErrorAction SilentlyContinue
 Check ($null -ne $ad) "TUN 网卡 Koyun-CI 已创建（普通权限做不到，说明是服务以 SYSTEM 创建的）"
 $c = curl.exe -s -o NUL -w '%{http_code}' --max-time 20 -x http://127.0.0.1:17998 http://www.gstatic.com/generate_204
-Check ($c -eq '204') "通过服务启动的内核联网（HTTP $c）"
+Check ($c -eq '204') "通过服务启动的内核联网（HTTP ${c}）"
 Check (-not (Test-Path 'C:\Windows\koyun-should-not-exist.log')) "配置里的 log.output 被去掉，没有以系统权限写文件"
 $logs = Api 'GET' '/v1/logs?since=0' $null
 Check ($logs.json.lines.Count -gt 0) "能读到内核日志（$($logs.json.lines.Count) 行）"

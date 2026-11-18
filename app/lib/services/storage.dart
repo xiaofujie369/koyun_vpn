@@ -137,6 +137,10 @@ class Storage {
   Future<void> setAutoConnect(bool v) => _p.setBool('auto_connect', v);
 
   /// 界面语言："" 表示跟随系统
+  /// 主题：system 跟随系统（默认）/ light 白色 / dark 黑色
+  String get themeMode => _p.getString('theme_mode') ?? 'system';
+  Future<void> setThemeMode(String v) => _p.setString('theme_mode', v);
+
   String get localeOverride => _p.getString('locale') ?? '';
   Future<void> setLocaleOverride(String v) => _p.setString('locale', v);
 

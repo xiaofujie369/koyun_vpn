@@ -111,13 +111,13 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   children: [
                     const KLogo(size: 84),
-                    const SizedBox(height: 28),
+                    SizedBox(height: 28),
                     Text(t.welcomeBack,
                         style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 10),
                     Text(t.loginSubtitle,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: KColors.sub, fontSize: 14)),
+                        style: TextStyle(color: KColors.sub, fontSize: 14)),
                     const SizedBox(height: 36),
                     TextField(
                       controller: _email,
@@ -167,10 +167,10 @@ class _LoginPageState extends State<LoginPage> {
                     FilledButton(
                       onPressed: _loading ? null : _login,
                       child: _loading
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                              child: CircularProgressIndicator(strokeWidth: 2.4, color: KColors.onInk))
                           : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                               Text(t.loginButton),
                               const SizedBox(width: 8),
@@ -213,7 +213,7 @@ class _OrDivider extends StatelessWidget {
         const Expanded(child: Divider()),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Text(text, style: const TextStyle(color: KColors.sub, fontSize: 13)),
+          child: Text(text, style: TextStyle(color: KColors.sub, fontSize: 13)),
         ),
         const Expanded(child: Divider()),
       ]);

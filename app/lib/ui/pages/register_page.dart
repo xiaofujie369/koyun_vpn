@@ -22,13 +22,13 @@ Future<void> showWebRegisterDialog(BuildContext context, String reason) {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (reason.isNotEmpty) ...[
-            Text(reason, style: const TextStyle(color: KColors.danger)),
+            Text(reason, style: TextStyle(color: KColors.danger)),
             const SizedBox(height: 14),
           ],
           Text(t.webRegisterHint),
           const SizedBox(height: 12),
           SelectableText(AppConfig.webRegisterUrl,
-              style: const TextStyle(fontWeight: FontWeight.w700, color: KColors.lavender)),
+              style: TextStyle(fontWeight: FontWeight.w700, color: KColors.lavender)),
         ],
       ),
       actions: [
@@ -213,11 +213,11 @@ class _RegisterPageState extends State<RegisterPage> {
               maxWidth: 460,
               child: Column(children: [
                 const KLogo(size: 76),
-                const SizedBox(height: 22),
+                SizedBox(height: 22),
                 Text(t.registerTitle,
                     style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                Text(t.registerSubtitle, style: const TextStyle(color: KColors.sub)),
+                Text(t.registerSubtitle, style: TextStyle(color: KColors.sub)),
                 const SizedBox(height: 30),
                 if (_configLoading) const LinearProgressIndicator(minHeight: 2),
                 TextField(
@@ -235,7 +235,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                 value: _suffix,
                                 borderRadius: BorderRadius.circular(16),
                                 dropdownColor: KColors.surface,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontFamily: kFont,
                                     color: KColors.ink,
                                     fontWeight: FontWeight.w500),
@@ -286,7 +286,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         child: TextButton(
                           onPressed: _countdown > 0 ? null : _sendCode,
                           child: Text(_countdown > 0 ? '${_countdown}s' : t.sendCode,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: KColors.lavender, fontWeight: FontWeight.w700)),
                         ),
                       ),
@@ -305,10 +305,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 FilledButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                          child: CircularProgressIndicator(strokeWidth: 2.4, color: KColors.onInk))
                       : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                           Text(t.registerButton),
                           const SizedBox(width: 8),

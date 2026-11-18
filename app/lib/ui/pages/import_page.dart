@@ -96,11 +96,11 @@ class _ImportPageState extends State<ImportPage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             KCard(
               child: Row(children: [
-                const IconBox(Icons.info_outline_rounded, color: KColors.lavender),
+                IconBox(Icons.info_outline_rounded, color: KColors.lavender),
                 const SizedBox(width: 14),
                 Expanded(
                     child: Text(t.importDesc,
-                        style: const TextStyle(color: KColors.sub, height: 1.5))),
+                        style: TextStyle(color: KColors.sub, height: 1.5))),
               ]),
             ),
             if (session.mode == AccountMode.none && session.backupNodeCount > 0) ...[
@@ -157,7 +157,7 @@ class _ImportPageState extends State<ImportPage> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
                     child: Column(children: [
-                      const Icon(Icons.upload_file_rounded, size: 36, color: KColors.lavender),
+                      Icon(Icons.upload_file_rounded, size: 36, color: KColors.lavender),
                       const SizedBox(height: 10),
                       Text(desktop ? t.importDropTitle : t.importPickTitle,
                           textAlign: TextAlign.center,
@@ -165,7 +165,7 @@ class _ImportPageState extends State<ImportPage> {
                       const SizedBox(height: 4),
                       Text(t.importDropHint,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: KColors.sub, fontSize: 13)),
+                          style: TextStyle(color: KColors.sub, fontSize: 13)),
                     ]),
                   ),
                 ),
@@ -183,10 +183,10 @@ class _ImportPageState extends State<ImportPage> {
                     borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
                 enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
-                    borderSide: const BorderSide(color: KColors.border)),
+                    borderSide: BorderSide(color: KColors.border)),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
-                    borderSide: const BorderSide(color: KColors.lavender)),
+                    borderSide: BorderSide(color: KColors.lavender)),
               ),
             ),
             const SizedBox(height: 12),
@@ -200,13 +200,13 @@ class _ImportPageState extends State<ImportPage> {
                 label: Text(t.pasteFromClipboard),
               ),
             ]),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             FilledButton(
               onPressed: _loading ? null : () => _import(_ctl.text),
               child: _loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 22, height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+                      child: CircularProgressIndicator(strokeWidth: 2.4, color: KColors.onInk))
                   : Text(t.importButton),
             ),
           ]),
