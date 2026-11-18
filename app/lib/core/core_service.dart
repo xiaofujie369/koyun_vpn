@@ -270,6 +270,11 @@ class CoreService extends ChangeNotifier {
         }
       }
       final api = _api!;
+      // 内核缓存里记着上次在连接中选过的节点（可能正是被封锁的那个），启动后会优先用它而不是配置里的默认值。
+      // 必须先把 App 当前的选择同步过去再检测，否则检测的一直是缓存里的旧节点 → 选什么都“连接失败”
+      try {
+        await api.select('proxy', selected);
+      } catch (_) {}
       // 内核起来不代表节点能用：被墙的节点也能“启动成功”。先真实访问一次测试地址
       if (!await _verifyNode(api)) {
         await backend.stop();
@@ -569,6 +574,19 @@ class CoreService extends ChangeNotifier {
         await api.select('proxy', tag);
         await api.closeAllConnections();
       } catch (_) {}
+      // 连接中换节点：马上检测一次，新节点不通就立刻提示（不用等每分钟的巡检）
+      unawaited(_checkAfterSwitch(api, tag));
+    }
+  }
+
+  Future<void> _checkAfterSwitch(ClashApi api, String tag) async {
+    final ok = await _verifyNode(api, initial: tag == 'auto');
+    if (_api != api || selected != tag || status != CoreStatus.running) return;
+    _healthFails = ok ? 0 : 2;
+    if (nodeUnreachable != !ok) {
+      nodeUnreachable = !ok;
+      if (!ok) Reporter.instance.event('node_unreachable', {..._connInfo(), 'after': 'switch'});
+      notifyListeners();
     }
   }
 

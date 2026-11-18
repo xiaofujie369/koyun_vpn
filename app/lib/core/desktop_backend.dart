@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../services/reporter.dart';
 import 'config_builder.dart';
 import 'core_backend.dart';
@@ -39,6 +41,9 @@ class DesktopBackend extends CoreBackend {
   bool? _macHelperOk;
 
   String get binaryPath {
+    // 只在调试 / 自动测试时可用：指定内核路径（正式版忽略）
+    final override = kDebugMode ? Platform.environment['KOYUN_SINGBOX'] : null;
+    if (override != null && override.isNotEmpty) return override;
     final dir = File(Platform.resolvedExecutable).parent.path;
     if (Platform.isWindows) return '$dir\\sing-box.exe';
     if (Platform.isMacOS) {
