@@ -88,18 +88,54 @@ class ClashApi {
   }
 
   /// 实时网速流：每秒一条 (上传B/s, 下载B/s)
-  Stream<(int, int)> traffic() async* {
-    final req = await _client.getUrl(_u('/traffic'));
-    req.headers.set('Authorization', 'Bearer $secret');
-    final res = await req.close();
-    await for (final line
-        in res.transform(utf8.decoder).transform(const LineSplitter())) {
-      if (line.trim().isEmpty) continue;
-      try {
-        final j = jsonDecode(line);
-        yield ((j['up'] as num).toInt(), (j['down'] as num).toInt());
-      } catch (_) {}
+  ///
+  /// 不能写成 async*：内核重启时这个长连接会断，若此时订阅正被取消，
+  /// async* 会把错误抛给 cancel() 的调用方（连接流程），导致“连接失败：HttpException …/traffic”。
+  /// 这里取消之后发生的错误一律丢弃，取消本身永不抛错。
+  Stream<(int, int)> traffic() {
+    StreamSubscription<String>? lines;
+    late final StreamController<(int, int)> c;
+    void fail(Object e) {
+      if (!c.isClosed) {
+        c.addError(e);
+        c.close();
+      }
     }
+
+    c = StreamController<(int, int)>(
+      onListen: () async {
+        try {
+          final req = await _client.getUrl(_u('/traffic'));
+          req.headers.set('Authorization', 'Bearer $secret');
+          final res = await req.close();
+          if (c.isClosed) {
+            res.listen(null, onError: (_) {}).cancel().ignore();
+            return;
+          }
+          lines = res.transform(utf8.decoder).transform(const LineSplitter()).listen(
+            (line) {
+              if (line.trim().isEmpty || c.isClosed) return;
+              try {
+                final j = jsonDecode(line);
+                c.add(((j['up'] as num).toInt(), (j['down'] as num).toInt()));
+              } catch (_) {}
+            },
+            onError: fail,
+            onDone: () => c.isClosed ? null : c.close(),
+            cancelOnError: true,
+          );
+        } catch (e) {
+          fail(e);
+        }
+      },
+      onCancel: () async {
+        try {
+          await lines?.cancel();
+        } catch (_) {}
+        if (!c.isClosed) await c.close();
+      },
+    );
+    return c.stream;
   }
 
   /// 本次连接累计流量

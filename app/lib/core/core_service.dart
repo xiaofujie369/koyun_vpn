@@ -278,6 +278,7 @@ class CoreService extends ChangeNotifier {
       // 内核起来不代表节点能用：被墙的节点也能“启动成功”。先真实访问一次测试地址
       if (!await _verifyNode(api)) {
         await backend.stop();
+        await _waitMobileStopped();
         throw CoreStartException('node unreachable', kind: 'nodeUnreachable');
       }
       mixedPort = isMobile ? null : _mixedPortPending;
@@ -308,6 +309,18 @@ class CoreService extends ChangeNotifier {
   }
 
   int _mixedPortPending = 0;
+
+  /// 安卓的 VPN 服务是异步停止的，“已停止”的通知会晚一点到。必须等它到了再结束这次连接，
+  /// 否则用户马上点下一次连接时，这个迟到的通知会被当成“新内核刚启动就退出”，正常节点也显示连接失败
+  Future<void> _waitMobileStopped() async {
+    final b = backend;
+    if (b is! MobileBackend) return;
+    for (var i = 0; i < 40 && b.lastStatus != 'stopped'; i++) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    // 通知经由事件流转发，再让出一次事件循环保证监听器已经处理完
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
 
   /// 安卓分应用代理的包名列表。“只代理所选”时把 Koyun 自己也加上（App 登录、刷新订阅要走代理）；
   /// “所选不走代理”时不能排除自己
@@ -505,8 +518,12 @@ class CoreService extends ChangeNotifier {
   Future<void> _stopWatchers() async {
     _trafficRetry?.cancel();
     _trafficRetry = null;
-    await _trafficSub?.cancel();
+    final sub = _trafficSub;
     _trafficSub = null;
+    // 停止监听时的错误（内核已经停了，长连接断开）与这次连接无关，不能让它让连接失败
+    try {
+      await sub?.cancel();
+    } catch (_) {}
     _pollTimer?.cancel();
     _pollTimer = null;
   }
@@ -517,7 +534,7 @@ class CoreService extends ChangeNotifier {
     NetRoute.proxy = null;
     upSpeed = downSpeed = 0;
     connectedAt = null;
-    _stopWatchers();
+    unawaited(_stopWatchers());
     _healthTimer?.cancel();
     _guardTimer?.cancel();
     nodeUnreachable = false;
@@ -554,6 +571,8 @@ class CoreService extends ChangeNotifier {
     try {
       await backend.stop();
     } catch (_) {}
+    // 安卓：等“已停止”通知到了再算断开完成（状态还是 stopping，监听器会忽略它），避免断开后马上重连被误判
+    await _waitMobileStopped();
     _onStopped();
     notifyListeners();
   }
