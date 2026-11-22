@@ -75,13 +75,19 @@ class _PowerButtonState extends State<PowerButton> with SingleTickerProviderStat
                   border: on ? null : Border.all(color: KColors.border, width: 0.8),
                   boxShadow: on
                       ? [
-                          // 参考图：只有柔和的投影，没有光环
-                          BoxShadow(color: KColors.p.gradient[1].withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 12)),
+                          // 只有柔和的投影，没有光环。阴影比按钮小一圈（spread 为负）、往下偏同样的距离：
+                          // 即使模糊没生效也完全藏在按钮后面，不会在下方露出一道月牙形的硬边
+                          BoxShadow(
+                              color: KColors.p.gradient[1].withValues(alpha: 0.32),
+                              blurRadius: 26,
+                              spreadRadius: -8,
+                              offset: const Offset(0, 8)),
                         ]
                       : [
                           BoxShadow(
-                              color: Colors.black.withValues(alpha: KColors.isDark ? 0.30 : 0.07),
-                              blurRadius: 28,
+                              color: Colors.black.withValues(alpha: KColors.isDark ? 0.28 : 0.08),
+                              blurRadius: 22,
+                              spreadRadius: -6,
                               offset: const Offset(0, 6)),
                         ],
                 ),
