@@ -9,6 +9,7 @@ import '../../app_config.dart';
 import '../../services/session.dart';
 import '../theme.dart';
 import '../util.dart';
+import '../widgets/window_caption.dart';
 
 /// 注册失败 → 引导客户用浏览器打开网页注册（需求 1）
 Future<void> showWebRegisterDialog(BuildContext context, String reason) {
@@ -204,7 +205,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     final t = context.t;
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(flexibleSpace: windowDragArea),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

@@ -60,6 +60,20 @@ class OnlineTest extends TestCase
         $this->assertSame(0, Device::online()->count());
     }
 
+    public function test_app_restart_ends_previous_connection(): void
+    {
+        $id = str_repeat('9', 32);
+        $this->report($id, [['type' => 'connect_ok', 'data' => ['node' => 'A']]], '1.1.6');
+        $this->assertSame(1, Device::online()->count());
+        // 旧版被直接关掉没上报断开；下次打开（app_start）时纠正为已断开
+        $this->report($id, [['type' => 'app_start', 'data' => []]], '1.1.6');
+        $this->assertSame('disconnected', Device::find($id)->conn_state);
+        // 同一批里 app_start 之后又自动连上：最后是连接中
+        $this->report($id, [['type' => 'app_start', 'data' => []], ['type' => 'connect_ok', 'data' => ['node' => 'B']]], '1.1.6');
+        $this->assertSame('connected', Device::find($id)->conn_state);
+        $this->assertSame('B', Device::find($id)->conn_node);
+    }
+
     public function test_failed_connect_and_core_exit(): void
     {
         $id = str_repeat('c', 32);

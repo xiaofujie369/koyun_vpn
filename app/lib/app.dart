@@ -9,6 +9,7 @@ import 'services/session.dart';
 import 'ui/pages/home_shell.dart';
 import 'ui/pages/login_page.dart';
 import 'ui/theme.dart';
+import 'ui/widgets/window_caption.dart';
 
 /// 手动选择的语言（null = 跟随系统）
 final localeNotifier = ValueNotifier<Locale?>(null);
@@ -114,6 +115,13 @@ class _KoyunAppState extends State<KoyunApp> with WidgetsBindingObserver {
           return l;
         },
         home: const _Gate(),
+        // Windows：右上角的最小化 / 最大化 / 关闭叠在所有页面（登录页、导入页、弹窗）上面，哪里都能用
+        builder: (context, child) => useWindowsChrome
+            ? Stack(children: [
+                child ?? const SizedBox(),
+                const Positioned(top: 0, right: 0, child: WindowCaption()),
+              ])
+            : child ?? const SizedBox(),
       ),
     );
   }

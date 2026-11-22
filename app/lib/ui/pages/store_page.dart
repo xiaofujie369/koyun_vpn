@@ -91,12 +91,12 @@ class _StorePageState extends State<StorePage> {
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: _filter == i ? KColors.ink : Colors.transparent,
+                          color: _filter == i ? KColors.accent : Colors.transparent,
                           borderRadius: BorderRadius.circular(11),
                         ),
                         child: Text(l,
                             style: TextStyle(
-                                color: _filter == i ? KColors.onInk : KColors.sub,
+                                color: _filter == i ? Colors.white : KColors.sub,
                                 fontWeight: FontWeight.w700)),
                       ),
                     ),

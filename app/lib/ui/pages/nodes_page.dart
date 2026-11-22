@@ -334,10 +334,10 @@ class _RegionChip extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
         height: 30,
         child: Material(
-          color: selected ? KColors.ink : KColors.surface,
+          color: selected ? KColors.accent : KColors.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: selected ? KColors.ink : KColors.border),
+            side: BorderSide(color: selected ? KColors.accent : KColors.border),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
@@ -350,7 +350,7 @@ class _RegionChip extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                        color: selected ? KColors.onInk : KColors.ink)),
+                        color: selected ? Colors.white : KColors.ink)),
               ]),
             ),
           ),

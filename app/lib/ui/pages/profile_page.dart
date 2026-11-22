@@ -296,8 +296,8 @@ class _AccountCard extends StatelessWidget {
         Container(
           width: 58,
           height: 58,
-          decoration: BoxDecoration(color: KColors.ink, borderRadius: BorderRadius.circular(18)),
-          child: Icon(Icons.person_rounded, color: KColors.onInk, size: 30),
+          decoration: BoxDecoration(gradient: KColors.gradient, borderRadius: BorderRadius.circular(18)),
+          child: const Icon(Icons.person_rounded, color: Colors.white, size: 30),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -340,9 +340,9 @@ class _AccountCard extends StatelessWidget {
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: KColors.ink, borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: KColors.accentSoft, borderRadius: BorderRadius.circular(10)),
               child: Text(exp == 0 ? t.longTerm : fmtDate(exp),
-                  style: TextStyle(color: KColors.onInk, fontWeight: FontWeight.w700)),
+                  style: TextStyle(color: KColors.accent, fontWeight: FontWeight.w700)),
             ),
           ]),
       ]),

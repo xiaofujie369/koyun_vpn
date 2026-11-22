@@ -358,7 +358,8 @@ class CoreService extends ChangeNotifier {
       clashPort: clashPort,
       clashSecret: secret,
       tun: tun,
-      tunName: tunName,
+      // Windows 固定网卡名 Koyun：后台服务只清理名字以 Koyun 开头的残留网卡
+      tunName: tunName ?? (Platform.isWindows ? 'Koyun' : null),
       includePackages: _perApp('only'),
       excludePackages: _perApp('bypass'),
       mixedPort: isMobile ? null : mixedPort,

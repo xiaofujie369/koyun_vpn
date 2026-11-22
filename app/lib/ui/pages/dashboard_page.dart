@@ -264,8 +264,8 @@ class _NoticeBar extends StatelessWidget {
       child: Row(children: [
         Container(
           padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(color: KColors.ink, borderRadius: BorderRadius.circular(10)),
-          child: Icon(Icons.campaign_rounded, color: KColors.onInk, size: 18),
+          decoration: BoxDecoration(gradient: KColors.gradient, borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.campaign_rounded, color: Colors.white, size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(

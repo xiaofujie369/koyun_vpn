@@ -15,7 +15,9 @@ import 'package:koyun_vpn/services/storage.dart';
 import 'package:koyun_vpn/app_config.dart';
 import 'package:koyun_vpn/ui/pages/home_shell.dart';
 import 'package:koyun_vpn/ui/pages/import_page.dart';
+import 'package:koyun_vpn/ui/pages/login_page.dart';
 import 'package:koyun_vpn/ui/theme.dart';
+import 'package:koyun_vpn/ui/widgets/window_caption.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -86,6 +88,11 @@ Widget _app(Session s, CoreService c) => MultiProvider(
           GlobalCupertinoLocalizations.delegate,
         ],
         home: const HomeShell(),
+        // 和正式 App 一样：Windows 窗口按钮叠在所有页面上
+        builder: (context, child) => Stack(children: [
+          child ?? const SizedBox(),
+          const Positioned(top: 0, right: 0, child: WindowCaption()),
+        ]),
       ),
     );
 
@@ -106,6 +113,8 @@ Future<void> _loadFonts() async {
 }
 
 void main() {
+  // 在 Linux 上也画出 Windows 的窗口按钮（截图 / 布局检查都按 Windows 来）
+  debugWindowsChrome = true;
   setUpAll(_loadFonts);
   testWidgets('截图 导入本地文件', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
     tester.view.physicalSize = const Size(1024, 576);
@@ -128,6 +137,22 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   });
+  testWidgets('截图 登录页', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
+    tester.view.physicalSize = const Size(1024, 576);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (s, c) = await _services();
+    await tester.pumpWidget(RepaintBoundary(child: _app(s, c)));
+    await tester.pump(const Duration(milliseconds: 300));
+    Navigator.of(tester.element(find.byType(HomeShell)))
+        .push(MaterialPageRoute(builder: (_) => const LoginPage()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await expectLater(find.byType(RepaintBoundary).first, matchesGoldenFile('shots/login.png'));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   // 已连接状态的首页（看渐变连接按钮）
   for (final dark in [false, true]) {
     testWidgets('截图 home-on${dark ? '-dark' : ''}', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {

@@ -89,6 +89,23 @@ Check ($r.code -eq 422 -and $r.json.error) "启动失败返回原因：$($r.json
 
 $r = Api 'POST' '/v1/stop' $null
 Check (-not $r.json.running) "停止内核"
+Start-Sleep 2
+Check ($null -eq (Get-NetAdapter -Name 'Koyun-CI' -ErrorAction SilentlyContinue)) "正常停止后 TUN 网卡已删除（内核收到 Ctrl+Break 正常退出，不再留下残留网卡）"
+
+# 模拟内核崩溃：强制结束后，再用同名网卡启动必须成功（服务会在后台清掉残留网卡）
+$r = Api 'POST' '/v1/start' $cfg
+Check ($r.code -eq 200) "再次启动 TUN"
+Start-Sleep 2
+Stop-Process -Name sing-box -Force -ErrorAction SilentlyContinue
+Start-Sleep 8
+$t0 = Get-Date
+$r = Api 'POST' '/v1/start' $cfg
+Start-Sleep 3
+$st3 = Api 'GET' '/v1/status' $null
+$secs = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
+Check ($r.code -eq 200 -and $st3.json.running) "内核被强制结束后，再用同名网卡启动成功（$secs 秒）"
+Check ($null -ne (Get-NetAdapter -Name 'Koyun-CI' -ErrorAction SilentlyContinue)) "TUN 网卡重新创建"
+$r = Api 'POST' '/v1/stop' $null
 
 # 6. 服务重启（模拟开机）后生成新令牌，照样能用
 Restart-Service KoyunService

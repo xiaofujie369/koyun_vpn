@@ -24,6 +24,7 @@ type coreManager struct {
 	logs     []string // 环形缓冲
 	logBase  int      // logs[0] 的序号
 	lastErr  string
+	stopping *exec.Cmd // 正在被正常停止的内核（它的退出不算异常）
 }
 
 const maxLogs = 500
@@ -122,8 +123,13 @@ func (m *coreManager) start(config []byte) (coreStatus, error) {
 		if m.cmd == cmd {
 			m.exitCode = &code
 		}
+		graceful := m.stopping == cmd && code == 0
 		m.mu.Unlock()
 		close(done)
+		// 不是正常退出（崩溃、被强制结束）：可能留下残留 TUN 网卡，后台清掉，免得下次连接卡 15 秒后失败
+		if !graceful {
+			go cleanupTunGhosts()
+		}
 	}()
 	select {
 	case <-done:
@@ -151,6 +157,7 @@ func (m *coreManager) stop() {
 	m.mu.Lock()
 	cmd, done := m.cmd, m.done
 	m.cmd = nil
+	m.stopping = cmd
 	m.mu.Unlock()
 	if cmd == nil || cmd.Process == nil {
 		return

@@ -12,6 +12,7 @@ import '../../services/session.dart';
 import '../../services/storage.dart';
 import '../theme.dart';
 import '../util.dart';
+import '../widgets/window_caption.dart';
 
 /// 导入：拖入或选择转换好的文件，粘贴文件内容、订阅链接或节点链接，
 /// 也可以切回上次保存的订阅。
@@ -88,7 +89,7 @@ class _ImportPageState extends State<ImportPage> {
     final session = context.watch<Session>();
     final highlight = _dragging ? KColors.lavender : KColors.border;
     return Scaffold(
-      appBar: AppBar(title: Text(t.importSubscription)),
+      appBar: AppBar(title: Text(t.importSubscription), flexibleSpace: windowDragArea),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(top: 12, bottom: 32),
         child: KPage(

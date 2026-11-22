@@ -18,6 +18,7 @@ import 'package:koyun_vpn/ui/pages/import_page.dart';
 import 'package:koyun_vpn/ui/pages/login_page.dart';
 import 'package:koyun_vpn/services/updater.dart';
 import 'package:koyun_vpn/ui/theme.dart';
+import 'package:koyun_vpn/ui/widgets/window_caption.dart';
 import 'package:koyun_vpn/ui/widgets/update_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -101,6 +102,8 @@ class _FakeCore extends CoreService {
 }
 
 void main() {
+  // 在 Linux 上也画出 Windows 的窗口按钮（截图 / 布局检查都按 Windows 来）
+  debugWindowsChrome = true;
   group('导入本地文件', () {
     const file = '''
 {"koyun":{"format":1,"created_at":1,"upload":1,"download":2,"total":30,"expire":40},

@@ -7,6 +7,7 @@ import '../../api/xboard_api.dart';
 import '../../services/session.dart';
 import '../theme.dart';
 import '../util.dart';
+import '../widgets/window_caption.dart';
 import 'register_page.dart';
 
 class ForgotPage extends StatefulWidget {
@@ -80,7 +81,7 @@ class _ForgotPageState extends State<ForgotPage> {
     Widget pre(IconData i) =>
         Padding(padding: const EdgeInsets.only(left: 16, right: 8), child: Icon(i));
     return Scaffold(
-      appBar: AppBar(title: Text(t.forgotPassword)),
+      appBar: AppBar(title: Text(t.forgotPassword), flexibleSpace: windowDragArea),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(top: 20, bottom: 32),
         child: KPage(

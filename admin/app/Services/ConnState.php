@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
  *
  * * connect_ok / heartbeat → 连接中（heartbeat 是 1.1.8 起 App 连接期间每 5 分钟发的，只更新状态，不存成事件）
  * * disconnect → 已断开；connect_fail → 连接失败；core_exit（内核意外退出）→ 已断开
+ * * app_start → App 重新打开了，上一次的连接一定已经结束（App 退出时内核也会被结束）→ 已断开；
+ *   旧版被直接关掉、没来得及上报“断开”的，下次打开时就会被纠正
  * * 旧版没有心跳：只能根据最后一次连接事件推测，App 被直接杀掉时会一直显示“连接中”，所以页面上分开标注
  */
 class ConnState
@@ -65,6 +67,9 @@ class ConnState
                         $u['hb_up'] = max(0, (int) ($d['up'] ?? 0));
                     }
                     break;
+                case 'app_start':
+                    if ($state !== 'connected') break;
+                    // no break：按断开处理
                 case 'disconnect':
                 case 'core_exit':
                     $state = 'disconnected';
@@ -87,7 +92,7 @@ class ConnState
     /** 用已有事件推算每台设备的当前状态（部署时运行一次：php artisan koyun:conn-backfill） */
     public static function backfill(): int
     {
-        $types = ['connect_ok', 'connect_fail', 'disconnect', 'core_exit'];
+        $types = ['connect_ok', 'connect_fail', 'disconnect', 'core_exit', 'app_start'];
         $n = 0;
         $latest = DB::table('client_events')->whereIn('type', $types)
             ->selectRaw('device_id, MAX(id) id')->groupBy('device_id')->pluck('id', 'device_id');

@@ -131,6 +131,8 @@ func serve(owner string, stop <-chan struct{}) error {
 		return fmt.Errorf("secure %s: %w", dir, err)
 	}
 	core := &coreManager{binary: filepath.Join(exeDir(), "sing-box.exe"), dataDir: filepath.Join(dir, "core")}
+	// 开机 / 服务重启时先清一次残留网卡（上次关机时内核可能没正常退出）
+	go cleanupTunGhosts()
 	l, port, err := listenLocal()
 	if err != nil {
 		return err

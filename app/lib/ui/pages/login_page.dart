@@ -6,6 +6,7 @@ import '../../services/session.dart';
 import '../../services/storage.dart';
 import '../theme.dart';
 import '../util.dart';
+import '../widgets/window_caption.dart';
 import 'forgot_page.dart';
 import 'import_page.dart';
 import 'register_page.dart';
@@ -100,7 +101,10 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final t = context.t;
     return Scaffold(
-      appBar: widget.keepConnection ? AppBar() : null,
+      // Windows 没有系统标题栏：登录页也要有一条能拖动窗口的顶栏
+      appBar: widget.keepConnection || useWindowsChrome
+          ? AppBar(automaticallyImplyLeading: widget.keepConnection, flexibleSpace: windowDragArea)
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

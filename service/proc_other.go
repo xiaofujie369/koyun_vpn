@@ -10,3 +10,5 @@ import (
 func hideWindow(*exec.Cmd) {}
 
 func interrupt(cmd *exec.Cmd) { _ = cmd.Process.Signal(syscall.SIGTERM) }
+
+func cleanupTunGhosts() {}

@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../../app_config.dart';
 import '../../core/core_service.dart';
@@ -12,6 +11,7 @@ import '../../services/updater.dart';
 import '../theme.dart';
 import '../util.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/window_caption.dart';
 import 'dashboard_page.dart';
 import 'nodes_page.dart';
 import 'profile_page.dart';
@@ -92,9 +92,9 @@ class HomeShellState extends State<HomeShell> {
       );
     }
 
-    // Big Sur：侧边栏铺满窗口高度（系统标题栏已隐藏）；右侧顶部一条可拖动的窄栏，
-    // Windows 在它右边放标准的最小化 / 最大化 / 关闭，macOS 用左上角的红绿灯
-    final mac = Platform.isMacOS;
+    // Big Sur：侧边栏铺满窗口高度。Windows 隐藏了系统标题栏：内容区顶部留一条可拖动的窄栏，
+    // 右上角的最小化 / 最大化 / 关闭由全局叠加层画（见 WindowCaption）；macOS / Linux 用系统标题栏
+    final win = useWindowsChrome;
     return Scaffold(
       backgroundColor: KColors.bg,
       body: Row(children: [
@@ -104,9 +104,9 @@ class HomeShellState extends State<HomeShell> {
             gradient: KColors.sidebarGradient,
             border: Border(right: BorderSide(color: KColors.border, width: 0.6)),
           ),
-          padding: EdgeInsets.fromLTRB(10, mac ? 44 : 16, 10, 12),
+          padding: const EdgeInsets.fromLTRB(10, 16, 10, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (!mac) const SizedBox(height: 2),
+            const SizedBox(height: 2),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(children: [
@@ -130,104 +130,12 @@ class HomeShellState extends State<HomeShell> {
           child: DecoratedBox(
             decoration: BoxDecoration(gradient: KColors.bgGradient),
             child: Column(children: [
-            SizedBox(
-              height: mac ? 28 : 34,
-              child: Row(children: [
-                const Expanded(child: DragToMoveArea(child: SizedBox.expand())),
-                if (!mac) const _CaptionButtons(),
-              ]),
-            ),
+            if (win) SizedBox(height: kWindowCaptionHeight, child: windowDragArea),
             Expanded(child: body),
           ]),
           ),
         ),
       ]),
-    );
-  }
-}
-
-/// Windows 标准的窗口按钮（最小化 / 最大化或还原 / 关闭），放在右上角；关闭悬停变红
-class _CaptionButtons extends StatefulWidget {
-  const _CaptionButtons();
-  @override
-  State<_CaptionButtons> createState() => _CaptionButtonsState();
-}
-
-class _CaptionButtonsState extends State<_CaptionButtons> with WindowListener {
-  bool _max = false;
-
-  @override
-  void initState() {
-    super.initState();
-    windowManager.addListener(this);
-    windowManager.isMaximized().then((v) => mounted ? setState(() => _max = v) : null).catchError((_) {});
-  }
-
-  @override
-  void dispose() {
-    windowManager.removeListener(this);
-    super.dispose();
-  }
-
-  @override
-  void onWindowMaximize() => setState(() => _max = true);
-  @override
-  void onWindowUnmaximize() => setState(() => _max = false);
-
-  @override
-  Widget build(BuildContext context) {
-    final zh = Localizations.localeOf(context).languageCode == 'zh';
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      _CaptionButton(icon: Icons.remove, tooltip: zh ? '最小化' : 'Minimize', onTap: () => windowManager.minimize()),
-      _CaptionButton(
-        icon: _max ? Icons.filter_none : Icons.crop_square,
-        iconSize: _max ? 12 : 14,
-        tooltip: _max ? (zh ? '还原' : 'Restore') : (zh ? '最大化' : 'Maximize'),
-        onTap: () async => await windowManager.isMaximized() ? windowManager.unmaximize() : windowManager.maximize(),
-      ),
-      _CaptionButton(icon: Icons.close, tooltip: zh ? '关闭' : 'Close', close: true, onTap: () => windowManager.close()),
-    ]);
-  }
-}
-
-class _CaptionButton extends StatefulWidget {
-  const _CaptionButton({required this.icon, required this.tooltip, required this.onTap, this.close = false, this.iconSize = 15});
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  final bool close;
-  final double iconSize;
-  @override
-  State<_CaptionButton> createState() => _CaptionButtonState();
-}
-
-class _CaptionButtonState extends State<_CaptionButton> {
-  bool _hover = false;
-  @override
-  Widget build(BuildContext context) {
-    final bg = !_hover ? Colors.transparent : (widget.close ? const Color(0xFFC42B1C) : KColors.hover);
-    return Tooltip(
-      message: widget.tooltip,
-      waitDuration: const Duration(milliseconds: 600),
-      child: Semantics(
-        button: true,
-        label: widget.tooltip,
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) => setState(() => _hover = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: Container(
-              width: 46,
-              height: 34,
-              color: bg,
-              alignment: Alignment.center,
-              child: Icon(widget.icon,
-                  size: widget.iconSize, color: _hover && widget.close ? Colors.white : KColors.ink.withValues(alpha: 0.8)),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
