@@ -69,7 +69,7 @@ IpService _ip(CoreService c) => IpService(c)
     'country': 'Japan', 'countryCode': 'JP', 'city': 'Ōtsu', 'fraudScore': 75, 'isResidential': false, 'isBroadcast': true,
   });
 
-Widget _app(Session s, CoreService c) => MultiProvider(
+Widget _app(Session s, CoreService c, {bool chrome = true}) => MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: s),
         ChangeNotifierProvider.value(value: c),
@@ -91,7 +91,7 @@ Widget _app(Session s, CoreService c) => MultiProvider(
         // 和正式 App 一样：Windows 窗口按钮叠在所有页面上
         builder: (context, child) => Stack(children: [
           child ?? const SizedBox(),
-          const Positioned(top: 0, right: 0, child: WindowCaption()),
+          if (chrome) const Positioned(top: 0, right: 0, child: WindowCaption()),
         ]),
       ),
     );
@@ -152,6 +152,40 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   });
+
+  // 手机（安卓）尺寸：底部导航，没有侧边栏和窗口按钮
+  for (final dark in [false, true]) {
+    for (final page in ['home', 'nodes', 'profile']) {
+      testWidgets('截图 手机 $page${dark ? '-dark' : ''}', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
+        KColors.p = dark ? KPalette.darkTheme : KPalette.light;
+        addTearDown(() => KColors.p = KPalette.light);
+        debugWindowsChrome = false;
+        addTearDown(() => debugWindowsChrome = true);
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final (s, c) = await _services();
+        c.selected = s.nodes.first.tag;
+        if (page == 'home') {
+          c.status = CoreStatus.running;
+          c.connectedAt = DateTime.now().subtract(const Duration(minutes: 12, seconds: 5));
+          c.downSpeed = 1200 * 1024;
+          c.upSpeed = 96 * 1024;
+        }
+        await tester.pumpWidget(RepaintBoundary(child: _app(s, c, chrome: false)));
+        tester.state<HomeShellState>(find.byType(HomeShell)).goTo(page);
+        await tester.pump(const Duration(milliseconds: 600));
+        for (var k = 0; k < 3; k++) {
+          await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 300)));
+          await tester.pump();
+        }
+        await expectLater(find.byType(RepaintBoundary).first, matchesGoldenFile('shots/m-$page${dark ? '-dark' : ''}.png'));
+        c.status = CoreStatus.stopped;
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 2));
+      });
+    }
+  }
 
   // 已连接状态的首页（看渐变连接按钮）
   for (final dark in [false, true]) {

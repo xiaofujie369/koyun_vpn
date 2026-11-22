@@ -77,7 +77,11 @@ class HomeShellState extends State<HomeShell> {
 
     if (!wide) {
       return Scaffold(
-        body: SafeArea(bottom: false, child: body),
+        // 手机也用淡粉 → 淡蓝渐变底，和电脑版一致
+        body: DecoratedBox(
+          decoration: BoxDecoration(gradient: KColors.bgGradient),
+          child: SafeArea(bottom: false, child: body),
+        ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(border: Border(top: BorderSide(color: KColors.border))),
           child: NavigationBar(
