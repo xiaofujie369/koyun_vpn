@@ -143,7 +143,7 @@ class KCard extends StatelessWidget {
           boxShadow: KColors.cardShadow,
         ),
         child: Material(
-          color: color ?? KColors.surface,
+          color: color ?? KColors.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(KSize.radiusLg),
             side: BorderSide(color: KColors.border, width: 0.8),

@@ -70,13 +70,13 @@ class _PowerButtonState extends State<PowerButton> with SingleTickerProviderStat
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   // 已连接：紫 → 蓝紫渐变 + 柔光；未连接：白色圆盘 + 柔和阴影
-                  color: on ? null : KColors.surface,
+                  color: on ? null : KColors.card,
                   gradient: on ? KColors.gradient : null,
                   border: on ? null : Border.all(color: KColors.border, width: 0.8),
                   boxShadow: on
                       ? [
-                          BoxShadow(color: KColors.p.gradient.first.withValues(alpha: 0.40), blurRadius: 36, offset: const Offset(0, 10)),
-                          BoxShadow(color: KColors.p.gradient.last.withValues(alpha: 0.25), blurRadius: 60, spreadRadius: 6),
+                          // 参考图：只有柔和的投影，没有光环
+                          BoxShadow(color: KColors.p.gradient[1].withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 12)),
                         ]
                       : [
                           BoxShadow(

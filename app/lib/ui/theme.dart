@@ -28,6 +28,8 @@ class KPalette {
     required this.dangerSoft,
     required this.gradient,
     required this.sidebarGradient,
+    required this.card,
+    required this.bgGradient,
   });
   final bool dark;
   final Color bg, sidebar, surface, field, hover, border, ink, onInk, sub, faint;
@@ -39,53 +41,64 @@ class KPalette {
   /// 侧边栏的淡淡渐变（模拟 Big Sur 的磨砂侧边栏）
   final List<Color> sidebarGradient;
 
-  /// 浅色（默认，1.1.8 起为 Big Sur 风格）：浅灰底 + 白色卡片 + 柔和阴影，强调色紫色带一点蓝紫渐变
+  /// 卡片：半透明白（磨砂），透出底下的渐变
+  final Color card;
+
+  /// 内容区底色：左上淡粉 → 中间浅灰 → 右上淡蓝
+  final List<Color> bgGradient;
+
+  /// 浅色（默认，1.1.8 Big Sur 风格，参考用户给的 Mac 截图）：
+  /// 粉色磨砂侧边栏 + 很淡的粉 / 蓝渐变底 + 半透明白卡片；强调色蓝紫，连接按钮蓝 → 紫渐变
   static const light = KPalette(
     dark: false,
-    bg: Color(0xFFF6F6F8),
-    sidebar: Color(0xFFEDEBF4),
+    bg: Color(0xFFF1EEF0),
+    sidebar: Color(0xFFF0D9DF),
     surface: Color(0xFFFFFFFF),
-    field: Color(0xFFEFEFF3),
-    hover: Color(0xFFE4E2EC),
-    border: Color(0xFFE2E1E8),
+    card: Color(0xD9FFFFFF),
+    field: Color(0x14000000),
+    hover: Color(0x12000000),
+    border: Color(0x14000000),
     ink: Color(0xFF1D1D1F),
     onInk: Color(0xFFFFFFFF),
     sub: Color(0xFF6E6E73),
-    faint: Color(0xFF9E9EA6),
-    accent: Color(0xFF7458F0),
-    accentSoft: Color(0xFFEEEAFE),
+    faint: Color(0xFF9A98A0),
+    accent: Color(0xFF5B6CF2),
+    accentSoft: Color(0xFFE8EBFE),
     ok: Color(0xFF1F9D55),
-    okSoft: Color(0xFFE4F5EA),
+    okSoft: Color(0xFFE2F4E8),
     warn: Color(0xFFB86E00),
-    warnSoft: Color(0xFFFFF2DD),
+    warnSoft: Color(0xFFFFF1DA),
     danger: Color(0xFFDC3545),
-    dangerSoft: Color(0xFFFDE9EB),
-    gradient: [Color(0xFFA07CFF), Color(0xFF7458F0), Color(0xFF5A78F5)],
-    sidebarGradient: [Color(0xFFF1EFF8), Color(0xFFE9E7F1)],
+    dangerSoft: Color(0xFFFDE8EA),
+    gradient: [Color(0xFF6A8DFA), Color(0xFF5B6CF2), Color(0xFF7B5AEE)],
+    sidebarGradient: [Color(0xFFF3DCE2), Color(0xFFEBD2DA)],
+    bgGradient: [Color(0xFFF2E6EA), Color(0xFFF1EFF0), Color(0xFFDFE8F0)],
   );
 
   static const darkTheme = KPalette(
     dark: true,
-    bg: Color(0xFF1C1C1E),
-    sidebar: Color(0xFF26242C),
-    surface: Color(0xFF2A2A2D),
-    field: Color(0xFF36363A),
-    hover: Color(0xFF3A3842),
-    border: Color(0xFF38383C),
+    bg: Color(0xFF1C1B21),
+    sidebar: Color(0xFF2B2229),
+    surface: Color(0xFF2A2A2F),
+    card: Color(0x14FFFFFF),
+    field: Color(0x1FFFFFFF),
+    hover: Color(0x1AFFFFFF),
+    border: Color(0x1FFFFFFF),
     ink: Color(0xFFF5F5F7),
     onInk: Color(0xFF1C1C1E),
-    sub: Color(0xFFA1A1A8),
-    faint: Color(0xFF76767E),
-    accent: Color(0xFF9A82FF),
-    accentSoft: Color(0xFF2E2848),
+    sub: Color(0xFFA6A4AD),
+    faint: Color(0xFF7A7882),
+    accent: Color(0xFF8394FF),
+    accentSoft: Color(0xFF262B4A),
     ok: Color(0xFF4ADE80),
     okSoft: Color(0xFF16291D),
     warn: Color(0xFFFBBF24),
     warnSoft: Color(0xFF3A2C12),
     danger: Color(0xFFFF6B6B),
     dangerSoft: Color(0xFF3A1A1C),
-    gradient: [Color(0xFFB194FF), Color(0xFF8468F5), Color(0xFF6A86FA)],
-    sidebarGradient: [Color(0xFF2A2732), Color(0xFF221F28)],
+    gradient: [Color(0xFF7C9CFF), Color(0xFF6977F5), Color(0xFF8A68F2)],
+    sidebarGradient: [Color(0xFF33252F), Color(0xFF281F28)],
+    bgGradient: [Color(0xFF231C24), Color(0xFF1C1B21), Color(0xFF18202B)],
   );
 }
 
@@ -116,6 +129,9 @@ class KColors {
 
   static LinearGradient get gradient =>
       LinearGradient(colors: p.gradient, begin: Alignment.topLeft, end: Alignment.bottomRight);
+  static Color get card => p.card;
+  static LinearGradient get bgGradient =>
+      LinearGradient(colors: p.bgGradient, begin: Alignment.topLeft, end: Alignment.topRight, stops: const [0, 0.5, 1]);
   static LinearGradient get sidebarGradient =>
       LinearGradient(colors: p.sidebarGradient, begin: Alignment.topCenter, end: Alignment.bottomCenter);
 

@@ -96,12 +96,13 @@ class HomeShellState extends State<HomeShell> {
     // Windows 在它右边放标准的最小化 / 最大化 / 关闭，macOS 用左上角的红绿灯
     final mac = Platform.isMacOS;
     return Scaffold(
+      backgroundColor: KColors.bg,
       body: Row(children: [
         Container(
           width: 220,
           decoration: BoxDecoration(
             gradient: KColors.sidebarGradient,
-            border: Border(right: BorderSide(color: KColors.border, width: 0.8)),
+            border: Border(right: BorderSide(color: KColors.border, width: 0.6)),
           ),
           padding: EdgeInsets.fromLTRB(10, mac ? 44 : 16, 10, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -125,7 +126,10 @@ class HomeShellState extends State<HomeShell> {
           ]),
         ),
         Expanded(
-          child: Column(children: [
+          // 内容区：很淡的粉 → 灰 → 蓝渐变底，卡片是半透明白，透出底色（模拟 Big Sur 磨砂）
+          child: DecoratedBox(
+            decoration: BoxDecoration(gradient: KColors.bgGradient),
+            child: Column(children: [
             SizedBox(
               height: mac ? 28 : 34,
               child: Row(children: [
@@ -135,6 +139,7 @@ class HomeShellState extends State<HomeShell> {
             ),
             Expanded(child: body),
           ]),
+          ),
         ),
       ]),
     );
@@ -256,30 +261,27 @@ class _SideItem extends StatelessWidget {
         // Big Sur：选中项是强调色胶囊（这里用紫色渐变），文字和图标变白
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: selected ? KColors.gradient : null,
+            color: selected ? KColors.ink.withValues(alpha: KColors.isDark ? 0.14 : 0.09) : null,
             borderRadius: BorderRadius.circular(7),
-            boxShadow: selected
-                ? [BoxShadow(color: KColors.accent.withValues(alpha: 0.28), blurRadius: 8, offset: const Offset(0, 2))]
-                : null,
           ),
           child: Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(7),
             child: InkWell(
               borderRadius: BorderRadius.circular(7),
-              hoverColor: selected ? Colors.transparent : KColors.hover.withValues(alpha: 0.7),
+              hoverColor: selected ? Colors.transparent : KColors.hover,
               onTap: onTap,
               child: SizedBox(
                 height: 32,
                 child: Row(children: [
                   const SizedBox(width: 10),
-                  Icon(icon, size: 17, color: selected ? Colors.white : KColors.accent),
+                  Icon(icon, size: 17, color: KColors.ink.withValues(alpha: selected ? 0.9 : 0.75)),
                   const SizedBox(width: 10),
                   Text(label,
                       style: TextStyle(
                           fontSize: KSize.body,
                           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                          color: selected ? Colors.white : KColors.ink)),
+                          color: KColors.ink)),
                 ]),
               ),
             ),

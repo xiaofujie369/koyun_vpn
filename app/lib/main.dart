@@ -275,17 +275,17 @@ class DesktopShell with TrayListener, WindowListener {
   }
 }
 
-/// 默认窗口 900×600（和 1.1.6 一样）。屏幕可用区域放不下时按比例缩小，
+/// 默认窗口 16:9（1024×576）。屏幕可用区域放不下时按 16:9 等比例缩小，
 /// 保证在 1366×768 + 125% 缩放这类小屏幕上也能完整显示
 Future<(Size, Size)> _windowSize() async {
-  const want = Size(900, 600);
-  const minWant = Size(760, 500);
+  const want = Size(1024, 576);
+  const minWant = Size(800, 450);
   try {
     final d = await screenRetriever.getPrimaryDisplay();
     final avail = d.visibleSize ?? d.size; // 逻辑像素，已去掉任务栏
-    final w = (avail.width * 0.94).clamp(560.0, want.width);
-    final h = (avail.height * 0.92).clamp(420.0, want.height);
-    return (Size(w, h), Size(w < minWant.width ? w : minWant.width, h < minWant.height ? h : minWant.height));
+    final k = [1.0, avail.width * 0.94 / want.width, avail.height * 0.92 / want.height].reduce((a, b) => a < b ? a : b);
+    final size = Size(want.width * k, want.height * k);
+    return (size, Size(size.width < minWant.width ? size.width : minWant.width, size.height < minWant.height ? size.height : minWant.height));
   } catch (_) {
     return (want, minWant);
   }
