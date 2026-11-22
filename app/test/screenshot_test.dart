@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:koyun_vpn/api/xboard_api.dart';
+import 'package:koyun_vpn/core/core_backend.dart';
 import 'package:koyun_vpn/core/core_service.dart';
 import 'package:koyun_vpn/l10n/gen/app_localizations.dart';
 import 'package:koyun_vpn/models/node.dart';
@@ -127,6 +128,32 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   });
+  // 已连接状态的首页（看渐变连接按钮）
+  for (final dark in [false, true]) {
+    testWidgets('截图 home-on${dark ? '-dark' : ''}', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {
+      KColors.p = dark ? KPalette.darkTheme : KPalette.light;
+      addTearDown(() => KColors.p = KPalette.light);
+      tester.view.physicalSize = const Size(900, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (s, c) = await _services();
+      c.selected = s.nodes.first.tag;
+      c.status = CoreStatus.running;
+      c.connectedAt = DateTime.now().subtract(const Duration(minutes: 42, seconds: 7));
+      c.downSpeed = 3 * 1024 * 1024 + 300 * 1024;
+      c.upSpeed = 412 * 1024;
+      await tester.pumpWidget(RepaintBoundary(child: _app(s, c)));
+      await tester.pump(const Duration(milliseconds: 600));
+      for (var k = 0; k < 3; k++) {
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 300)));
+        await tester.pump();
+      }
+      await expectLater(find.byType(RepaintBoundary).first, matchesGoldenFile('shots/home-on${dark ? '-dark' : ''}.png'));
+      c.status = CoreStatus.stopped;
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 2));
+    });
+  }
   for (final dark in [false, true]) {
   for (final page in ['home', 'nodes', 'profile']) {
     testWidgets('截图 $page${dark ? '-dark' : ''}', skip: !Platform.environment.containsKey('SHOTS'), (tester) async {

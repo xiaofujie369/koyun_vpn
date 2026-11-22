@@ -136,17 +136,24 @@ class KCard extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? color;
   @override
-  Widget build(BuildContext context) => Material(
-        color: color ?? KColors.surface,
-        shape: RoundedRectangleBorder(
+  Widget build(BuildContext context) => DecoratedBox(
+        // Big Sur：白卡片 + 发丝边框 + 柔和阴影
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(KSize.radiusLg),
-          side: BorderSide(color: KColors.border),
+          boxShadow: KColors.cardShadow,
         ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          hoverColor: KColors.bg,
-          child: Padding(padding: padding, child: child),
+        child: Material(
+          color: color ?? KColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(KSize.radiusLg),
+            side: BorderSide(color: KColors.border, width: 0.8),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            hoverColor: KColors.bg,
+            child: Padding(padding: padding, child: child),
+          ),
         ),
       );
 }

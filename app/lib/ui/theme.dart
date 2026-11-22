@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 设计语言：默认 1.1.6 的奶白色主题，设置里可选深色；1px 细边框、小圆角、紧凑字号、单色图标，几乎不用阴影；
+/// 设计语言（1.1.8，Big Sur 风格）：全高侧边栏 + 浅灰底白卡片 + 柔和阴影 + 紫色渐变强调；设置里可选深色；1px 细边框、小圆角、紧凑字号、单色图标，几乎不用阴影；
 /// 唯一的彩色是强调色（Logo 的紫色）和状态色。
 ///
 /// 颜色是“当前主题”的取值，切换主题时由 [ThemeController] 换一套并重建界面，
@@ -26,54 +26,66 @@ class KPalette {
     required this.warnSoft,
     required this.danger,
     required this.dangerSoft,
+    required this.gradient,
+    required this.sidebarGradient,
   });
   final bool dark;
   final Color bg, sidebar, surface, field, hover, border, ink, onInk, sub, faint;
   final Color accent, accentSoft, ok, okSoft, warn, warnSoft, danger, dangerSoft;
 
-  /// 1.1.6 的奶白色主题（默认）
+  /// 强调渐变（紫 → 蓝紫）：只用在连接按钮、侧边栏选中项、主按钮等少数地方
+  final List<Color> gradient;
+
+  /// 侧边栏的淡淡渐变（模拟 Big Sur 的磨砂侧边栏）
+  final List<Color> sidebarGradient;
+
+  /// 浅色（默认，1.1.8 起为 Big Sur 风格）：浅灰底 + 白色卡片 + 柔和阴影，强调色紫色带一点蓝紫渐变
   static const light = KPalette(
     dark: false,
-    bg: Color(0xFFFAF8F4),
-    sidebar: Color(0xFFF3F0EA),
+    bg: Color(0xFFF6F6F8),
+    sidebar: Color(0xFFEDEBF4),
     surface: Color(0xFFFFFFFF),
-    field: Color(0xFFF5F3EE),
-    hover: Color(0xFFEDEAE3),
-    border: Color(0xFFE6E2D9),
-    ink: Color(0xFF1F1D1A),
+    field: Color(0xFFEFEFF3),
+    hover: Color(0xFFE4E2EC),
+    border: Color(0xFFE2E1E8),
+    ink: Color(0xFF1D1D1F),
     onInk: Color(0xFFFFFFFF),
-    sub: Color(0xFF6F6A61),
-    faint: Color(0xFFA59F94),
-    accent: Color(0xFF7C6BD6),
-    accentSoft: Color(0xFFEFEBFB),
-    ok: Color(0xFF2F9E6B),
-    okSoft: Color(0xFFE6F4EC),
-    warn: Color(0xFFC98A1C),
-    warnSoft: Color(0xFFFBF2DF),
-    danger: Color(0xFFD1453B),
-    dangerSoft: Color(0xFFFBE7E5),
+    sub: Color(0xFF6E6E73),
+    faint: Color(0xFF9E9EA6),
+    accent: Color(0xFF7458F0),
+    accentSoft: Color(0xFFEEEAFE),
+    ok: Color(0xFF1F9D55),
+    okSoft: Color(0xFFE4F5EA),
+    warn: Color(0xFFB86E00),
+    warnSoft: Color(0xFFFFF2DD),
+    danger: Color(0xFFDC3545),
+    dangerSoft: Color(0xFFFDE9EB),
+    gradient: [Color(0xFFA07CFF), Color(0xFF7458F0), Color(0xFF5A78F5)],
+    sidebarGradient: [Color(0xFFF1EFF8), Color(0xFFE9E7F1)],
   );
 
   static const darkTheme = KPalette(
     dark: true,
-    bg: Color(0xFF0B0B0D),
-    sidebar: Color(0xFF111114),
-    surface: Color(0xFF151518),
-    field: Color(0xFF1E1E22),
-    hover: Color(0xFF2A2A30),
-    border: Color(0xFF2A2A30),
-    ink: Color(0xFFF4F4F5),
-    onInk: Color(0xFF0B0B0D),
-    sub: Color(0xFFA1A1AA),
-    faint: Color(0xFF7A7A84),
-    accent: Color(0xFF8B7BEA),
-    accentSoft: Color(0xFF26213F),
+    bg: Color(0xFF1C1C1E),
+    sidebar: Color(0xFF26242C),
+    surface: Color(0xFF2A2A2D),
+    field: Color(0xFF36363A),
+    hover: Color(0xFF3A3842),
+    border: Color(0xFF38383C),
+    ink: Color(0xFFF5F5F7),
+    onInk: Color(0xFF1C1C1E),
+    sub: Color(0xFFA1A1A8),
+    faint: Color(0xFF76767E),
+    accent: Color(0xFF9A82FF),
+    accentSoft: Color(0xFF2E2848),
     ok: Color(0xFF4ADE80),
-    okSoft: Color(0xFF13291C),
+    okSoft: Color(0xFF16291D),
     warn: Color(0xFFFBBF24),
-    warnSoft: Color(0xFF3A2A10),
-    danger: Color(0xFFF87171),
-    dangerSoft: Color(0xFF3A1717),
+    warnSoft: Color(0xFF3A2C12),
+    danger: Color(0xFFFF6B6B),
+    dangerSoft: Color(0xFF3A1A1C),
+    gradient: [Color(0xFFB194FF), Color(0xFF8468F5), Color(0xFF6A86FA)],
+    sidebarGradient: [Color(0xFF2A2732), Color(0xFF221F28)],
   );
 }
 
@@ -101,6 +113,19 @@ class KColors {
   static Color get warnSoft => p.warnSoft;
   static Color get danger => p.danger;
   static Color get dangerSoft => p.dangerSoft;
+
+  static LinearGradient get gradient =>
+      LinearGradient(colors: p.gradient, begin: Alignment.topLeft, end: Alignment.bottomRight);
+  static LinearGradient get sidebarGradient =>
+      LinearGradient(colors: p.sidebarGradient, begin: Alignment.topCenter, end: Alignment.bottomCenter);
+
+  /// 卡片的柔和阴影（深色模式靠边框区分，不用阴影）
+  static List<BoxShadow> get cardShadow => p.dark
+      ? const []
+      : const [
+          BoxShadow(color: Color(0x0A000000), blurRadius: 3, offset: Offset(0, 1)),
+          BoxShadow(color: Color(0x08000000), blurRadius: 14, offset: Offset(0, 4)),
+        ];
 
   // 兼容旧名称
   static Color get lavender => p.accent;
@@ -148,8 +173,8 @@ class ThemeController extends ChangeNotifier {
 
 /// 尺寸规范（紧凑）
 class KSize {
-  static const radius = 10.0;
-  static const radiusLg = 14.0;
+  static const radius = 9.0;
+  static const radiusLg = 12.0;
   static const control = 38.0; // 按钮 / 输入框高度
   static const body = 13.5;
   static const small = 12.0;
@@ -222,8 +247,8 @@ ThemeData buildTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: KColors.ink,
-        foregroundColor: KColors.onInk,
+        backgroundColor: KColors.accent,
+        foregroundColor: Colors.white,
         disabledBackgroundColor: KColors.hover,
         minimumSize: const Size(64, KSize.control),
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -263,7 +288,7 @@ ThemeData buildTheme() {
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.all(Colors.white),
       trackColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? KColors.ink : KColors.hover),
+          (s) => s.contains(WidgetState.selected) ? KColors.accent : KColors.hover),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       thumbIcon: WidgetStateProperty.all(const Icon(null)),
     ),

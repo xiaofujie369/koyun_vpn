@@ -78,6 +78,9 @@ Future<void> main(List<String> args) async {
         center: true,
         title: AppConfig.appName,
         backgroundColor: KColors.bg,
+        // Big Sur：隐藏系统标题栏，侧边栏铺满；Windows 右上角自己画标准的最小化 / 最大化 / 关闭，macOS 保留红绿灯
+        titleBarStyle: TitleBarStyle.hidden,
+        windowButtonVisibility: Platform.isMacOS,
       ),
       () async {
         // 开机自启（--autostart）：只在托盘里运行，不弹主窗口

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../app_config.dart';
 import '../../core/core_service.dart';
@@ -91,16 +92,20 @@ class HomeShellState extends State<HomeShell> {
       );
     }
 
+    // Big Sur：侧边栏铺满窗口高度（系统标题栏已隐藏）；右侧顶部一条可拖动的窄栏，
+    // Windows 在它右边放标准的最小化 / 最大化 / 关闭，macOS 用左上角的红绿灯
+    final mac = Platform.isMacOS;
     return Scaffold(
       body: Row(children: [
         Container(
-          width: 216,
+          width: 220,
           decoration: BoxDecoration(
-            color: KColors.sidebar,
-            border: Border(right: BorderSide(color: KColors.border)),
+            gradient: KColors.sidebarGradient,
+            border: Border(right: BorderSide(color: KColors.border, width: 0.8)),
           ),
-          padding: const EdgeInsets.fromLTRB(12, 18, 12, 12),
+          padding: EdgeInsets.fromLTRB(10, mac ? 44 : 16, 10, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (!mac) const SizedBox(height: 2),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: Row(children: [
@@ -112,15 +117,112 @@ class HomeShellState extends State<HomeShell> {
                 const _StatusDot(),
               ]),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
             for (var i = 0; i < items.length; i++)
               _SideItem(icon: items[i].$2, label: items[i].$3, selected: index == i, onTap: () => go(i)),
             const Spacer(),
             const _SideUser(),
           ]),
         ),
-        Expanded(child: body),
+        Expanded(
+          child: Column(children: [
+            SizedBox(
+              height: mac ? 28 : 34,
+              child: Row(children: [
+                const Expanded(child: DragToMoveArea(child: SizedBox.expand())),
+                if (!mac) const _CaptionButtons(),
+              ]),
+            ),
+            Expanded(child: body),
+          ]),
+        ),
       ]),
+    );
+  }
+}
+
+/// Windows 标准的窗口按钮（最小化 / 最大化或还原 / 关闭），放在右上角；关闭悬停变红
+class _CaptionButtons extends StatefulWidget {
+  const _CaptionButtons();
+  @override
+  State<_CaptionButtons> createState() => _CaptionButtonsState();
+}
+
+class _CaptionButtonsState extends State<_CaptionButtons> with WindowListener {
+  bool _max = false;
+
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    windowManager.isMaximized().then((v) => mounted ? setState(() => _max = v) : null).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowMaximize() => setState(() => _max = true);
+  @override
+  void onWindowUnmaximize() => setState(() => _max = false);
+
+  @override
+  Widget build(BuildContext context) {
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      _CaptionButton(icon: Icons.remove, tooltip: zh ? '最小化' : 'Minimize', onTap: () => windowManager.minimize()),
+      _CaptionButton(
+        icon: _max ? Icons.filter_none : Icons.crop_square,
+        iconSize: _max ? 12 : 14,
+        tooltip: _max ? (zh ? '还原' : 'Restore') : (zh ? '最大化' : 'Maximize'),
+        onTap: () async => await windowManager.isMaximized() ? windowManager.unmaximize() : windowManager.maximize(),
+      ),
+      _CaptionButton(icon: Icons.close, tooltip: zh ? '关闭' : 'Close', close: true, onTap: () => windowManager.close()),
+    ]);
+  }
+}
+
+class _CaptionButton extends StatefulWidget {
+  const _CaptionButton({required this.icon, required this.tooltip, required this.onTap, this.close = false, this.iconSize = 15});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool close;
+  final double iconSize;
+  @override
+  State<_CaptionButton> createState() => _CaptionButtonState();
+}
+
+class _CaptionButtonState extends State<_CaptionButton> {
+  bool _hover = false;
+  @override
+  Widget build(BuildContext context) {
+    final bg = !_hover ? Colors.transparent : (widget.close ? const Color(0xFFC42B1C) : KColors.hover);
+    return Tooltip(
+      message: widget.tooltip,
+      waitDuration: const Duration(milliseconds: 600),
+      child: Semantics(
+        button: true,
+        label: widget.tooltip,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Container(
+              width: 46,
+              height: 34,
+              color: bg,
+              alignment: Alignment.center,
+              child: Icon(widget.icon,
+                  size: widget.iconSize, color: _hover && widget.close ? Colors.white : KColors.ink.withValues(alpha: 0.8)),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -150,26 +252,36 @@ class _SideItem extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 2),
-        child: Material(
-          color: selected ? KColors.hover : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            hoverColor: KColors.hover.withValues(alpha: 0.6),
-            onTap: onTap,
-            child: SizedBox(
-              height: 34,
-              child: Row(children: [
-                const SizedBox(width: 10),
-                Icon(icon, size: 17, color: selected ? KColors.ink : KColors.sub),
-                const SizedBox(width: 10),
-                Text(label,
-                    style: TextStyle(
-                        fontSize: KSize.body,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                        color: selected ? KColors.ink : KColors.sub)),
-              ]),
+        padding: const EdgeInsets.only(bottom: 3),
+        // Big Sur：选中项是强调色胶囊（这里用紫色渐变），文字和图标变白
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: selected ? KColors.gradient : null,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: selected
+                ? [BoxShadow(color: KColors.accent.withValues(alpha: 0.28), blurRadius: 8, offset: const Offset(0, 2))]
+                : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(7),
+              hoverColor: selected ? Colors.transparent : KColors.hover.withValues(alpha: 0.7),
+              onTap: onTap,
+              child: SizedBox(
+                height: 32,
+                child: Row(children: [
+                  const SizedBox(width: 10),
+                  Icon(icon, size: 17, color: selected ? Colors.white : KColors.accent),
+                  const SizedBox(width: 10),
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: KSize.body,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                          color: selected ? Colors.white : KColors.ink)),
+                ]),
+              ),
             ),
           ),
         ),

@@ -69,15 +69,21 @@ class _PowerButtonState extends State<PowerButton> with SingleTickerProviderStat
                 height: s,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: on ? KColors.accent : KColors.surface,
-                  border: Border.all(color: on ? KColors.accent : KColors.border, width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: on ? KColors.accent.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.04),
-                      blurRadius: on ? 32 : 10,
-                      offset: Offset(0, on ? 8 : 2),
-                    ),
-                  ],
+                  // 已连接：紫 → 蓝紫渐变 + 柔光；未连接：白色圆盘 + 柔和阴影
+                  color: on ? null : KColors.surface,
+                  gradient: on ? KColors.gradient : null,
+                  border: on ? null : Border.all(color: KColors.border, width: 0.8),
+                  boxShadow: on
+                      ? [
+                          BoxShadow(color: KColors.p.gradient.first.withValues(alpha: 0.40), blurRadius: 36, offset: const Offset(0, 10)),
+                          BoxShadow(color: KColors.p.gradient.last.withValues(alpha: 0.25), blurRadius: 60, spreadRadius: 6),
+                        ]
+                      : [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: KColors.isDark ? 0.30 : 0.07),
+                              blurRadius: 28,
+                              offset: const Offset(0, 6)),
+                        ],
                 ),
               ),
               if (_busy)
