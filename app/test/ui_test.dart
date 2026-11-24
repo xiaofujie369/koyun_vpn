@@ -41,7 +41,13 @@ Future<(Session, CoreService)> _services() async {
     'reset_day': 12,
   };
   session.notices = [
-    {'title': '公告：新节点上线', 'content': '<p>香港节点已扩容</p>'}
+    {'title': '公告：新节点上线', 'content': '<p>香港节点已扩容</p>'},
+    {
+      'title': '滚动字幕',
+      'tags': ['滚动'],
+      'content': '<p>请到“我的”页面升级到最新版客户端</p><p>网页打不开、游戏连不上，请在首页打开 TUN 模式</p>',
+    },
+    {'title': '收藏网址', 'tags': ['滚动'], 'content': '最新网址 shy521.com 请收藏'},
   ];
   session.nodes = [
     for (final n in [
@@ -321,4 +327,25 @@ void main() {
     });
   }
   }
+
+  testWidgets('带“滚动”标签的公告：多条连成一条滚动字幕，点开是全部公告全文', (tester) async {
+    tester.view.physicalSize = const Size(800, 450);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (s, c) = await _services();
+    await tester.pumpWidget(_app(s, c));
+    await tester.pump(const Duration(milliseconds: 500));
+    const text = '请到“我的”页面升级到最新版客户端　　◆　　网页打不开、游戏连不上，请在首页打开 TUN 模式　　◆　　最新网址 shy521.com 请收藏';
+    expect(find.text('公告：新节点上线'), findsNothing, reason: '有滚动公告时替换掉普通公告条');
+    final first = find.text(text).first;
+    final x0 = tester.getTopLeft(first).dx;
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.getTopLeft(first).dx, lessThan(x0 - 20), reason: '字幕在往左滚');
+    expect(tester.takeException(), isNull);
+    await tester.tap(first, warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('滚动字幕'), findsOneWidget, reason: '点开显示公告弹窗');
+    expect(find.textContaining('【收藏网址】'), findsOneWidget, reason: '多条滚动公告合在一个弹窗里');
+    await tester.pumpWidget(const SizedBox());
+  });
 }

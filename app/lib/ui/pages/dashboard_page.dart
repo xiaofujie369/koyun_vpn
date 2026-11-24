@@ -182,7 +182,7 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           KPage(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              if (s.notices.isNotEmpty) _NoticeBar(notice: s.notices.first),
+              if (s.notices.isNotEmpty) _NoticeBar(notices: s.notices),
               if (s.subscriptionUnavailable) ...[
                 const SizedBox(height: 12),
                 _WarnCard(
@@ -252,15 +252,39 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
+/// 面板公告带“滚动”标签的做成滚动字幕：多条首尾相接一直循环滚动（每条里的每一行也分开显示）；
+/// 一条都没有就和以前一样显示第一条公告的标题
+bool _isMarquee(Map<String, dynamic> n) => n['tags'] is List && (n['tags'] as List).contains('滚动');
+
+String _plain(Map<String, dynamic> n) => stripHtml((n['content'] ?? '').toString());
+
 class _NoticeBar extends StatelessWidget {
-  const _NoticeBar({required this.notice});
-  final Map<String, dynamic> notice;
+  const _NoticeBar({required this.notices});
+  final List<Map<String, dynamic>> notices;
   @override
   Widget build(BuildContext context) {
-    final title = (notice['title'] ?? '').toString();
+    final rolling = notices.where(_isMarquee).toList();
+    final marquee = rolling.isNotEmpty;
+    final title = marquee
+        ? rolling
+            .expand((n) => _plain(n).split('\n'))
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .join('　　◆　　')
+        : (notices.first['title'] ?? '').toString();
+    // 点开：一条就是它本身；多条合在一个弹窗里，每条前面带标题
+    final detail = !marquee
+        ? notices.first
+        : rolling.length == 1
+            ? rolling.first
+            : {
+                'title': rolling.first['title'],
+                'content': rolling.map((n) => '【${n['title'] ?? ''}】\n${_plain(n)}').join('\n\n'),
+              };
+    const style = TextStyle(fontWeight: FontWeight.w500);
     return KCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      onTap: () => showNotice(context, notice),
+      onTap: () => showNotice(context, detail),
       child: Row(children: [
         Container(
           padding: const EdgeInsets.all(7),
@@ -269,12 +293,77 @@ class _NoticeBar extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w500)),
+          child: marquee
+              ? _Marquee(text: title, style: style)
+              : Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
         ),
         Icon(Icons.chevron_right_rounded, color: KColors.faint),
       ]),
     );
+  }
+}
+
+/// 单行滚动字幕：放得下就静止显示，放不下从右往左循环滚动（约 40 像素/秒）
+class _Marquee extends StatefulWidget {
+  const _Marquee({required this.text, required this.style});
+  final String text;
+  final TextStyle style;
+  @override
+  State<_Marquee> createState() => _MarqueeState();
+}
+
+class _MarqueeState extends State<_Marquee> with SingleTickerProviderStateMixin {
+  static const _gap = 64.0;
+  late final _ctrl = AnimationController(vsync: this);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = DefaultTextStyle.of(context).style.merge(widget.style);
+    return LayoutBuilder(builder: (context, box) {
+      final tp = TextPainter(
+        text: TextSpan(text: widget.text, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        maxLines: 1,
+      )..layout();
+      final textW = tp.width;
+      final textH = tp.height;
+      tp.dispose();
+      if (textW <= box.maxWidth) {
+        if (_ctrl.isAnimating) _ctrl.stop();
+        return Text(widget.text, maxLines: 1, style: widget.style);
+      }
+      final cycle = textW + _gap;
+      final d = Duration(milliseconds: (cycle / 40 * 1000).round());
+      if (_ctrl.duration != d || !_ctrl.isAnimating) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _ctrl.duration = d;
+          _ctrl.repeat();
+        });
+      }
+      final line = Text(widget.text, maxLines: 1, softWrap: false, style: widget.style);
+      return ClipRect(
+        child: SizedBox(
+          height: textH,
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, child) => Transform.translate(offset: Offset(-_ctrl.value * cycle, 0), child: child),
+            child: OverflowBox(
+              alignment: Alignment.centerLeft,
+              maxWidth: double.infinity,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [line, const SizedBox(width: _gap), line]),
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 
