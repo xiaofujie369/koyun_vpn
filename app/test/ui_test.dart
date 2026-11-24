@@ -43,11 +43,11 @@ Future<(Session, CoreService)> _services() async {
   session.notices = [
     {'title': '公告：新节点上线', 'content': '<p>香港节点已扩容</p>'},
     {
-      'title': '滚动字幕',
+      'title': '新版本已发布，请尽快升级到最新版客户端',
       'tags': ['滚动'],
       'content': '<p>请到“我的”页面升级到最新版客户端</p><p>网页打不开、游戏连不上，请在首页打开 TUN 模式</p>',
     },
-    {'title': '收藏网址', 'tags': ['滚动'], 'content': '最新网址 shy521.com 请收藏'},
+    {'title': '电脑请用管理员权限开启 TUN 模式，减少掉线', 'tags': ['滚动'], 'content': '最新网址 shy521.com 请收藏'},
   ];
   session.nodes = [
     for (final n in [
@@ -328,14 +328,14 @@ void main() {
   }
   }
 
-  testWidgets('带“滚动”标签的公告：多条连成一条滚动字幕，点开是全部公告全文', (tester) async {
+  testWidgets('带“滚动”标签的公告：多条的标题连成一条滚动字幕，点开是全部公告全文', (tester) async {
     tester.view.physicalSize = const Size(800, 450);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final (s, c) = await _services();
     await tester.pumpWidget(_app(s, c));
     await tester.pump(const Duration(milliseconds: 500));
-    const text = '请到“我的”页面升级到最新版客户端　　◆　　网页打不开、游戏连不上，请在首页打开 TUN 模式　　◆　　最新网址 shy521.com 请收藏';
+    const text = '新版本已发布，请尽快升级到最新版客户端　　◆　　电脑请用管理员权限开启 TUN 模式，减少掉线';
     expect(find.text('公告：新节点上线'), findsNothing, reason: '有滚动公告时替换掉普通公告条');
     final first = find.text(text).first;
     final x0 = tester.getTopLeft(first).dx;
@@ -344,8 +344,9 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.tap(first, warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('滚动字幕'), findsOneWidget, reason: '点开显示公告弹窗');
-    expect(find.textContaining('【收藏网址】'), findsOneWidget, reason: '多条滚动公告合在一个弹窗里');
+    expect(find.text('新版本已发布，请尽快升级到最新版客户端'), findsOneWidget, reason: '点开显示公告弹窗（标题是第一条的标题）');
+    expect(find.textContaining('请在首页打开 TUN 模式'), findsOneWidget, reason: '弹窗里有正文');
+    expect(find.textContaining('【电脑请用管理员权限开启 TUN 模式，减少掉线】'), findsOneWidget, reason: '多条滚动公告合在一个弹窗里');
     await tester.pumpWidget(const SizedBox());
   });
 }

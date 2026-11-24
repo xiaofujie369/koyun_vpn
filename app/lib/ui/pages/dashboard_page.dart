@@ -252,7 +252,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-/// 面板公告带“滚动”标签的做成滚动字幕：多条首尾相接一直循环滚动（每条里的每一行也分开显示）；
+/// 面板公告带“滚动”标签的做成滚动字幕：多条公告的标题首尾相接一直循环滚动，点开看正文；
 /// 一条都没有就和以前一样显示第一条公告的标题
 bool _isMarquee(Map<String, dynamic> n) => n['tags'] is List && (n['tags'] as List).contains('滚动');
 
@@ -267,8 +267,7 @@ class _NoticeBar extends StatelessWidget {
     final marquee = rolling.isNotEmpty;
     final title = marquee
         ? rolling
-            .expand((n) => _plain(n).split('\n'))
-            .map((l) => l.trim())
+            .map((n) => (n['title'] ?? '').toString().trim())
             .where((l) => l.isNotEmpty)
             .join('　　◆　　')
         : (notices.first['title'] ?? '').toString();
